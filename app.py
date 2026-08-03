@@ -3,6 +3,7 @@ from typing import Any
 import streamlit as st
 
 from core.excel_reader import read_excel
+from core.validator import validate_columns
 
 st.set_page_config(page_title="Central de Erros", page_icon="🚗")
 
@@ -22,6 +23,14 @@ else:
     except ValueError as exc:
         st.error(str(exc))
     else:
-        st.write(f"Quantidade de linhas: {len(dataframe)}")
-        st.write(f"Quantidade de colunas: {len(dataframe.columns)}")
-        st.dataframe(dataframe.head(10))
+        is_valid, missing_columns = validate_columns(dataframe)
+
+        if not is_valid:
+            st.error(
+                "Planilha inválida. As colunas obrigatórias abaixo estão ausentes: "
+                + ", ".join(missing_columns)
+            )
+        else:
+            st.write(f"Quantidade de linhas: {len(dataframe)}")
+            st.write(f"Quantidade de colunas: {len(dataframe.columns)}")
+            st.dataframe(dataframe.head(10))
