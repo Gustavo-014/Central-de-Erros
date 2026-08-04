@@ -3,6 +3,7 @@ from typing import Any
 import streamlit as st
 
 from core.excel_reader import read_excel
+from core.message_builder import build_messages
 from core.processor import process_dataframe
 from core.validator import validate_columns
 
@@ -50,3 +51,10 @@ else:
                         st.write(f"Placas: {', '.join(placas)}")
 
                     st.write("")
+
+            mensagens = build_messages(dados)
+
+            st.subheader("Mensagens Geradas")
+            for cliente, mensagem in mensagens.items():
+                with st.expander(cliente):
+                    st.text_area("Mensagem", mensagem, height=300)
