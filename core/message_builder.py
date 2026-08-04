@@ -1,33 +1,41 @@
-import json
-from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
+
+from core.template_loader import load_layout, load_templates
 
 
 def build_messages(processed_data: Dict[str, Dict[str, List[str]]]) -> Dict[str, str]:
-    """Gera mensagens completas para cada cliente com base em templates salvos em JSON."""
-    templates_path = Path(__file__).resolve().parent.parent / "data" / "templates.json"
-
-    with templates_path.open("r", encoding="utf-8") as file:
-        templates = json.load(file)
+    """Gera mensagens completas para cada cliente com base em templates e layout salvos em JSON."""
+    templates = load_templates()
+    layout = load_layout()
 
     messages: Dict[str, str] = {}
 
     for cliente, erros in processed_data.items():
         lines: List[str] = []
-        lines.append("Olá, tudo bem?")
-        lines.append("")
-        lines.append("Durante a última rodada identificamos os seguintes retornos de erro para os veículos:")
-        lines.append("")
+        lines.append(layout.get("cabecalho", ""))
 
         for index, (erro, placas) in enumerate(erros.items(), start=1):
-            lines.append(f"{index}. {erro}")
-            lines.append(f"Placas: {', '.join(placas)}")
-            template = templates.get(erro, "Mensagem para este erro ainda não cadastrada.")
-            lines.append(template)
+            template = templates.get(erro)
+
+            lines.append(f"{index} - {erro}")
+            lines.append("")
+            lines.append("Placas:")
+            lines.append(", ".join(placas))
             lines.append("")
 
-        lines.append("Caso tenham qualquer dúvida, estamos à disposição.")
-        lines.append("Equipe Brobot")
-        messages[cliente] = "\n".join(lines)
+            if template is None:
+                lines.append("Mensagem para este erro ainda não cadastrada.")
+            else:
+                lines.append("Impacto")
+                lines.append(template.get("impacto", ""))
+                lines.append("")
+                lines.append("Solicitamos que verifiquem:")
+                for orientacao in template.get("orientacao", []):
+                    lines.append(f"• {orientacao}")
+
+            lines.append("")
+
+        lines.append(layout.get("rodape", ""))
+        messages[cliente] = "\n".join(line for line in lines if line is not None)
 
     return messages

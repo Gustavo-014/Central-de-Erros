@@ -1,5 +1,6 @@
 from typing import Any
 
+import pyperclip
 import streamlit as st
 
 from core.excel_reader import read_excel
@@ -55,6 +56,19 @@ else:
             mensagens = build_messages(dados)
 
             st.subheader("Mensagens Geradas")
+            st.write(f"Clientes: {len(mensagens)}")
+
+            termo_pesquisa = st.text_input("Pesquisar cliente")
+            clientes_filtrados = [
+                cliente for cliente in mensagens if termo_pesquisa.lower() in cliente.lower()
+            ]
+
             for cliente, mensagem in mensagens.items():
+                if cliente not in clientes_filtrados:
+                    continue
+
                 with st.expander(cliente):
                     st.text_area("Mensagem", mensagem, height=300)
+                    if st.button(f"📋 Copiar - {cliente}"):
+                        pyperclip.copy(mensagem)
+                        st.success("Mensagem copiada com sucesso.")
