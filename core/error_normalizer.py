@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 def _load_rules() -> Dict[str, Any]:
@@ -20,38 +20,65 @@ def _normalize_text(value: str) -> str:
     return normalized
 
 
+def _normalize_for_compare(value: str) -> str:
+    """Normaliza textos para comparação sem diferenciar maiúsculas/minúsculas."""
+    return _normalize_text(value).casefold()
+
+
+def _split_by_separator(value: str) -> str:
+    """Resolve mensagens separadas por barra, utilizando o primeiro trecho relevante."""
+    if "/" not in value:
+        return value
+
+    parts = [part.strip() for part in value.split("/") if part.strip()]
+    if not parts:
+        return value
+
+    for part in reversed(parts):
+        normalized_part = _normalize_for_compare(part)
+        if normalized_part in {"erro captcha", "failed to get"}:
+            continue
+        return part
+    return parts[-1]
+
+
 def normalize_error(error_original: str) -> Optional[str]:
     """Normaliza uma mensagem de erro original conforme as regras do arquivo JSON."""
-    rules = _load_rules()
-
     if error_original is None:
         return None
 
+    rules = _load_rules()
     original_text = str(error_original).strip()
     if not original_text:
         return None
 
-    if original_text in {item.strip() for item in rules.get("ignorar", [])}:
+    cleaned_text = _normalize_text(original_text)
+
+    if _normalize_for_compare(cleaned_text) in {
+        _normalize_for_compare(item) for item in rules.get("ignorar", [])
+    }:
         return None
 
-    if "/" in original_text:
-        parts = [part.strip() for part in original_text.split("/") if part.strip()]
-        if parts:
-            original_text = parts[-1]
+    if any(
+        _normalize_for_compare(item) in _normalize_for_compare(cleaned_text)
+        for item in rules.get("ignorar_trechos", [])
+    ):
+        return None
+
+    relevant_text = _split_by_separator(cleaned_text)
 
     for substitution in rules.get("substituicoes", []):
-        contain_text = substitution.get("contem", "")
-        result_text = substitution.get("resultado", "")
-        if contain_text and contain_text in original_text:
-            original_text = result_text
+        source = substitution.get("de", "")
+        target = substitution.get("para", "")
+        if source and _normalize_for_compare(source) in _normalize_for_compare(relevant_text):
+            relevant_text = target
             break
 
-    normalized_error = _normalize_text(original_text)
+    for prefix_rule in rules.get("prefixos", []):
+        prefix = prefix_rule.get("prefixo", "")
+        result = prefix_rule.get("resultado", "")
+        if prefix and _normalize_for_compare(relevant_text).startswith(_normalize_for_compare(prefix)):
+            relevant_text = result
+            break
 
-    if normalized_error in {item.strip() for item in rules.get("usar_ultimo_erro", [])}:
-        if "/" in error_original:
-            parts = [part.strip() for part in str(error_original).split("/") if part.strip()]
-            if parts:
-                normalized_error = _normalize_text(parts[-1])
-
-    return normalized_error or None
+    return _normalize_text(relevant_text) or None

@@ -1,20 +1,28 @@
 {
-  "ignorar": [
-    "java.io.IOException: Connection was closed"
-  ],
-  "usar_ultimo_erro": [
+  "ignorar": [],
+  "ignorar_trechos": [
     "Erro ao tentar resolver o captcha",
     "Failed to get:",
     "Órgão consultado apresentou instabilidade"
   ],
-  "substituicoes": [
+  "prefixos": [
     {
-      "contem": "Placa/Renavam não localizados:",
+      "prefixo": "Placa/Renavam não localizados:",
       "resultado": "Placa/Renavam não localizados"
     },
     {
-      "contem": "Ve�culo n�o cadastrado",
+      "prefixo": "Renavam não localizados:",
+      "resultado": "Renavam não localizados"
+    },
+    {
+      "prefixo": "Veículo não encontrado",
       "resultado": "Veículo não encontrado"
+    }
+  ],
+  "substituicoes": [
+    {
+      "de": "Ve�culo n�o cadastrado",
+      "para": "Veículo não encontrado"
     }
   ]
 }

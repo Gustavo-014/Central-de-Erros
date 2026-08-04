@@ -1,27 +1,32 @@
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
 from core.error_normalizer import normalize_error
+from core.extractor import extract_occurrence
 from core.template_loader import load_templates
 
 
-def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List[str]]], List[str]]:
-    """Organiza os dados da planilha em estrutura agrupada por cliente e erro."""
-    result: Dict[str, Dict[str, List[str]]] = {}
+def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List[Dict[str, str]]]], List[str], List[Dict[str, Any]]]:
+    """Extrai, normaliza, agrupa e elimina duplicados a partir da planilha."""
+    result: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
     pending_errors: List[str] = []
+    debug_rows: List[Dict[str, Any]] = []
     templates = load_templates()
 
     for _, row in dataframe.iterrows():
-        cliente = str(row.get("Nome da Conta", "")).strip()
-        placa = str(row.get("Placa", "")).strip()
-        mensagem = str(row.get("Mensagem de Erro", "")).strip()
+        occurrence = extract_occurrence(row)
+        cliente = occurrence.get("cliente") or ""
+        erro_original = occurrence.get("erro_original") or ""
+        erro_normalizado = normalize_error(erro_original)
 
-        erro_normalizado = normalize_error(mensagem)
         if erro_normalizado is None:
             continue
 
-        if not cliente or not placa:
+        if not cliente:
+            continue
+
+        if not any(value for value in occurrence.values() if value not in [None, ""] and value != cliente and value != erro_original):
             continue
 
         if cliente not in result:
@@ -30,21 +35,36 @@ def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List
         if erro_normalizado not in result[cliente]:
             result[cliente][erro_normalizado] = []
 
-        if placa not in result[cliente][erro_normalizado]:
-            result[cliente][erro_normalizado].append(placa)
+        occurrence_key = tuple(sorted({key: value for key, value in occurrence.items() if value not in [None, ""] and key not in ["cliente", "erro_original"]}.items()))
+        if not any(
+            tuple(sorted({key: value for key, value in item.items() if value not in [None, ""] and key not in ["cliente", "erro_original"]}.items())) == occurrence_key
+            for item in result[cliente][erro_normalizado]
+        ):
+            result[cliente][erro_normalizado].append(
+                {key: value for key, value in occurrence.items() if value not in [None, ""] and key not in ["cliente", "erro_original"]}
+            )
 
         if erro_normalizado not in templates:
             if erro_normalizado not in pending_errors:
                 pending_errors.append(erro_normalizado)
 
-    for cliente in result:
-        for erro in result[cliente]:
-            result[cliente][erro] = sorted(result[cliente][erro])
+        debug_rows.append(
+            {
+                "Erro Original": erro_original,
+                "Erro Normalizado": erro_normalizado,
+                "Template Encontrado": erro_normalizado in templates,
+                "Cliente": cliente,
+            }
+        )
 
     return (
         {
-            cliente: {erro: result[cliente][erro] for erro in sorted(result[cliente])}
+            cliente: {
+                erro: result[cliente][erro]
+                for erro in sorted(result[cliente])
+            }
             for cliente in sorted(result)
         },
         pending_errors,
+        debug_rows,
     )

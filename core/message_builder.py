@@ -20,7 +20,21 @@ def _clean_orientation_text(value: str) -> str:
     return cleaned.strip()
 
 
-def build_messages(processed_data: Dict[str, Dict[str, List[str]]]) -> Dict[str, str]:
+def _format_identifiers(occurrence: Dict[str, str], fields: List[str]) -> str:
+    """Formata os identificadores de uma ocorrência conforme a ordem definida nos campos de exibição."""
+    values: List[str] = []
+    for field in fields:
+        value = occurrence.get(field)
+        if value:
+            if field == "cnpj":
+                value = value.replace(".", "").replace("/", "").replace("-", "")
+                if len(value) == 14:
+                    value = f"{value[:2]}.{value[2:5]}.{value[5:8]}/{value[8:12]}-{value[12:14]}"
+            values.append(value)
+    return " - ".join(values)
+
+
+def build_messages(processed_data: Dict[str, Dict[str, List[Dict[str, str]]]]) -> Dict[str, str]:
     """Gera mensagens completas para cada cliente com base em templates e layout salvos em JSON."""
     templates = load_templates()
     layout = load_layout()
@@ -34,16 +48,20 @@ def build_messages(processed_data: Dict[str, Dict[str, List[str]]]) -> Dict[str,
         lines: List[str] = []
         lines.append(layout.get("cabecalho", ""))
 
-        for index, (erro, placas) in enumerate(erros.items(), start=1):
+        for index, (erro, ocorrencias) in enumerate(erros.items(), start=1):
             normalized_error = _normalize_text(erro)
             template = normalized_templates.get(normalized_error)
             title = template.get("titulo", erro) if template is not None else erro
+            identifier_label = template.get("rotulo_identificadores", "Identificadores") if template is not None else "Identificadores"
 
             lines.append(f"{index} - {title}")
             lines.append("")
-            lines.append("Placas:")
-            for placa in placas:
-                lines.append(placa)
+            lines.append(f"{identifier_label}:")
+            for occurrence in ocorrencias:
+                fields = template.get("campos_exibicao", ["placa"]) if template is not None else ["placa"]
+                formatted_value = _format_identifiers(occurrence, fields)
+                if formatted_value:
+                    lines.append(formatted_value)
             lines.append("")
 
             if template is None:

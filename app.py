@@ -1,5 +1,6 @@
 from typing import Any
 
+import pandas as pd
 import pyperclip
 import streamlit as st
 
@@ -38,20 +39,33 @@ else:
             st.write(f"Quantidade de colunas: {len(dataframe.columns)}")
             st.dataframe(dataframe.head(10))
 
-            dados, erros_sem_template = process_dataframe(dataframe)
+            dados, erros_sem_template, debug_rows = process_dataframe(dataframe)
+
+            debug_enabled = st.checkbox("Modo Debug")
 
             with st.expander("Resumo do processamento"):
                 for cliente, erros in dados.items():
                     st.write(f"Nome do cliente: {cliente}")
                     st.write(f"Quantidade de tipos de erro: {len(erros)}")
-                    total_placas = sum(len(placas) for placas in erros.values())
-                    st.write(f"Quantidade total de placas: {total_placas}")
+                    total_ocorrencias = sum(len(ocorrencias) for ocorrencias in erros.values())
+                    st.write(f"Quantidade de ocorrências: {total_ocorrencias}")
 
-                    for erro, placas in erros.items():
-                        st.write(f"Erro: {erro}")
-                        st.write(f"Placas: {', '.join(placas)}")
+                    for erro, ocorrencias in erros.items():
+                        st.write(f"### {erro}")
 
-                    st.write("")
+                        for ocorrencia in ocorrencias:
+                            linha = []
+
+                            if "placa" in ocorrencia:
+                                linha.append(ocorrencia["placa"])
+                            if "renavam" in ocorrencia:
+                                linha.append(ocorrencia["renavam"])
+                            if "cnpj" in ocorrencia:
+                                linha.append(ocorrencia["cnpj"])
+
+                            st.write(" - ".join(linha))
+
+                    st.divider()
 
             mensagens = build_messages(dados)
 
@@ -68,7 +82,13 @@ else:
                     continue
 
                 with st.expander(cliente):
-                    st.text_area("Mensagem", mensagem, height=300)
+                    st.text_area(
+                        "Mensagem",
+                        mensagem,
+                        height=300,
+                        key=f"mensagem_{cliente}"
+                    )
+
                     if st.button(f"📋 Copiar - {cliente}"):
                         pyperclip.copy(mensagem)
                         st.success("Mensagem copiada com sucesso.")
@@ -79,3 +99,6 @@ else:
                     st.write(f"• {erro}")
             else:
                 st.write("Nenhum erro pendente de cadastro.")
+
+            if debug_enabled:
+                st.dataframe(pd.DataFrame(debug_rows))
