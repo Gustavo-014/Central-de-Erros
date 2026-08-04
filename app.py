@@ -38,7 +38,7 @@ else:
             st.write(f"Quantidade de colunas: {len(dataframe.columns)}")
             st.dataframe(dataframe.head(10))
 
-            dados = process_dataframe(dataframe)
+            dados, erros_sem_template = process_dataframe(dataframe)
 
             with st.expander("Resumo do processamento"):
                 for cliente, erros in dados.items():
@@ -72,3 +72,10 @@ else:
                     if st.button(f"📋 Copiar - {cliente}"):
                         pyperclip.copy(mensagem)
                         st.success("Mensagem copiada com sucesso.")
+
+            st.subheader("⚠️ Erros sem template")
+            if erros_sem_template:
+                for erro in erros_sem_template:
+                    st.write(f"• {erro}")
+            else:
+                st.write("Nenhum erro pendente de cadastro.")

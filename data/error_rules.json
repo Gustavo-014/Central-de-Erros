@@ -1,0 +1,20 @@
+{
+  "ignorar": [
+    "java.io.IOException: Connection was closed"
+  ],
+  "usar_ultimo_erro": [
+    "Erro ao tentar resolver o captcha",
+    "Failed to get:",
+    "Órgão consultado apresentou instabilidade"
+  ],
+  "substituicoes": [
+    {
+      "contem": "Placa/Renavam não localizados:",
+      "resultado": "Placa/Renavam não localizados"
+    },
+    {
+      "contem": "Ve�culo n�o cadastrado",
+      "resultado": "Veículo não encontrado"
+    }
+  ]
+}

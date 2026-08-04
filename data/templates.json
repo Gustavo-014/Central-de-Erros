@@ -1,16 +1,15 @@
 {
-  "Veículo não encontrado": {
+  "Veículo não encontrado.": {
     "titulo": "Veículo não encontrado",
     "impacto": "As consultas não serão realizadas para estes veículos.",
     "orientacao": [
-      "Solicitamos que verifiquem:",
-      "- Se o veículo pertence à frota;",
-      "- Se está vinculado ao CNPJ correto;",
-      "- Se o cadastro está atualizado."
+      "Se o veículo pertence à frota;",
+      "Se está vinculado ao CNPJ correto;",
+      "Se o cadastro está atualizado."
     ]
   },
 
-  "Esta conta possui verificação em 2 etapas ativada": {
+  "Esta conta possui verificação em 2 etapas ativada. Necessário desativar esta verificação para que a consulta seja realizada.": {
     "titulo": "Esta conta possui verificação em 2 etapas ativada",
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que a 2FA seja desativada.",
     "orientacao": [
@@ -20,14 +19,14 @@
     ]
   },
 
-  "O campo cnpj está inválido": {
+  "O campo cpf_cnpj está inválido. Favor, corrija-o.": {
     "titulo": "O campo cnpj está inválido",
     "impacto": "Não foi possível capturar as multas no portal.",
     "orientacao": [
-      "Solicitamos que verifiquem, e nos passem em qual  CNPJ o veículo está cadastrado."
+      "Nos passem em qual CNPJ o veículo está cadastrado."
     ]
   },
-  "Verifique no portal sua adesão ao SNE": {
+  "Verifique no portal sua adesão ao SNE e tente novamente.": {
     "titulo": "Verifique no portal sua adesão ao SNE",
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ esteja aderido no SNE.",
     "orientacao": [
@@ -40,14 +39,14 @@
     "titulo": "Placa/Renavam não localizados",
     "impacto": "As consultas não serão realizadas para os veículos, até que a placa/renavam esteja correto.",
     "orientacao": [
-      "Solicitamos que verifiquem se os dados da placa estão corretos. Caso não, nos informem os dados corretos para que possamos atualizar o cadastro."
+      "Verifiquem se os dados da placa estão corretos. Caso não, nos informem os dados corretos para que possamos atualizar o cadastro."
        ]
     },
     "CNPJ não vinculado ao gov.br": {
     "titulo": "CNPJ não vinculado ao gov.br",
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ seja vinculado ao gov.br.",
     "orientacao": [
-      "Solicitamos que vinculem o CNPJ mencionado no gov.br."
+      "Vinculem o CNPJ mencionado no gov.br."
        ]
     }
 }
