@@ -3,7 +3,15 @@
   "ignorar_trechos": [
     "Erro ao tentar resolver o captcha",
     "Failed to get:",
-    "Órgão consultado apresentou instabilidade"
+    "Órgão consultado apresentou instabilidade",
+    "Erro inesperado. Por favor, tente novamente mais tarde. Caso o erro persista, notifique o time de desenvolvimento",
+    "Erro com o serviço de captcha. Por favor, tente novamente mais tarde. Caso o erro persista, notifique o time de desenvolvimento",
+    "Nenhum registro encontrado",
+    "Nenhum resultado encontrado",
+    "java.io.IOException: Connection was closed",
+    "Infração não encontrada no SNE",
+    "A placa informada não foi encontrada em nossos sistemas",
+    "VeiculoService.obterVeiculoPRPorRenavam(): Veículo não cadastrado!"
   ],
   "prefixos": [
     {
@@ -17,6 +25,14 @@
     {
       "prefixo": "Veículo não encontrado",
       "resultado": "Veículo não encontrado"
+    },
+    {
+      "prefixo": "Usuário e/ou senha inválidos. (ERL0003900)",
+      "resultado": "Usuário e/ou senha inválidos."
+    },
+    {
+      "prefixo": "Usuário e/ou senha inválidos. (ERL0003500)",
+      "resultado": "Usuário e/ou senha inválidos."
     }
   ],
   "substituicoes": [

@@ -70,7 +70,6 @@ def build_messages(processed_data: Dict[str, Dict[str, List[Dict[str, str]]]]) -
                 lines.append("Impacto:")
                 lines.append(template.get("impacto", ""))
                 lines.append("")
-                lines.append("Solicitamos que verifiquem:")
                 for orientacao in template.get("orientacao", []):
                     cleaned_orientation = _clean_orientation_text(orientacao)
                     if cleaned_orientation:

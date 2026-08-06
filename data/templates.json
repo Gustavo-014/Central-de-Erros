@@ -7,6 +7,7 @@
     ],
     "impacto": "As consultas não serão realizadas para estes veículos.",
     "orientacao": [
+      "Solicitamos que verifiquem se:",
       "Se o veículo pertence à frota;",
       "Se está vinculado ao CNPJ correto;",
       "Se o cadastro está atualizado."
@@ -27,9 +28,9 @@
   },
   "O campo cpf_cnpj está inválido. Favor, corrija-o.": {
     "titulo": "O campo cnpj está inválido",
-    "rotulo_identificadores": "CNPJs",
+    "rotulo_identificadores": "Placas",
     "campos_exibicao": [
-      "cnpj"
+      "placa"
     ],
     "impacto": "Não foi possível capturar as multas no portal.",
     "orientacao": [
@@ -45,9 +46,10 @@
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ esteja aderido no SNE.",
     "orientacao": [
       "⚠️ Ação necessária: Faça a adesão do CNPJ ao SNE",
-      "Para auxiliar, vamos encaminhar um manual mostrando o passo a passo de como desativar essa opção.",
+      "Para auxiliar, vamos encaminhar um manual mostrando o passo a passo fazer a adesão.",
       "https://drive.google.com/file/d/1s9EVwvX-UgK7BTBF2YoGJZQqXhf-3Tny/view?usp=sharing"
     ]
+    
   },
   "Placa/Renavam não localizados": {
     "titulo": "Placa/Renavam não localizados",
@@ -70,6 +72,81 @@
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ seja vinculado ao gov.br.",
     "orientacao": [
       "Vinculem o CNPJ mencionado no gov.br."
+    ]
+  },
+  "Verifique no portal a adesão ao SNE da empresa representada e tente novamente.": {
+    "titulo": "Verifique no portal sua adesão ao SNE",
+    "rotulo_identificadores": "CNPJs",
+    "campos_exibicao": [
+      "cnpj"
+    ],
+    "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ esteja aderido no SNE.",
+    "orientacao": [
+      "⚠️ Ação necessária: Faça a adesão do CNPJ ao SNE",
+      "Para auxiliar, vamos encaminhar um manual mostrando o passo a passo fazer a adesão.",
+      "https://drive.google.com/file/d/1s9EVwvX-UgK7BTBF2YoGJZQqXhf-3Tny/view?usp=sharing"
+    ]
+  },
+  "O veículo dessa infração não está em seu nome ou possui pendência de emissão do CRV (Certificado de Registro de Veículo). Regularize a situação no Detran": {
+    "titulo": "O veículo dessa infração não está em seu nome ou possui pendência de emissão do CRV. Regularize a situação no Detran",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para os veículos",
+    "orientacao": [
+      "Solicitamos que verifiquem o cadastro do veículo, e/ou regularizem a situação no Detran."
+    ]
+  },
+  "Certificado Digital expirado. Por favor, utilize um novo": {
+    "titulo": "Certificado Digital expirado. Por favor, utilize um novo",
+    "rotulo_identificadores": "CNPJs",
+    "campos_exibicao": [
+      "cnpj"
+    ],
+    "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
+    "orientacao": [
+      "Solicitamos que atualizem o certificado digital na plataforma"
+    ]
+    
+  },
+  "Usuário e/ou senha inválidos.": {
+    "titulo": "Usuário e/ou senha inválidos.",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
+    "orientacao": [
+      "Solicitamos que atualizem as credencias usadas no cadastro colaborativo."
+    ]
+  },
+  "CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ": {
+    "titulo": "CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
+    "orientacao": [
+      "Solicitamos que verifiquem:.",
+      "O cadastro do veículo",
+      "O CNPJ do proprietário do veículo"
+    ]
+  },
+  "Este veículo não consta no cadastro do Detran-RJ": {
+    "titulo": "Este veículo não consta no cadastro do Detran-RJ",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As multas desse veículo não foram capturadas.",
+    "orientacao": [
+      "Solicitamos que verifiquem se:",
+      "Se a placa informada está correta;",
+      "Se o veículo está cadastrado no Detran;",
+      "Se houve alguma alteração recente de placa ou transferência de UF;",
+      "Se o veículo encontra-se ativo no cadastro do Detran-RJ."
     ]
   }
 }
