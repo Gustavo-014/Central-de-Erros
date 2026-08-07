@@ -5,7 +5,7 @@
     "campos_exibicao": [
       "placa"
     ],
-    "impacto": "As consultas não serão realizadas para estes veículos.",
+    "impacto": "As consultas não serão realizadas para estes veículos.", 
     "orientacao": [
       "Solicitamos que verifiquem se:",
       "Se o veículo pertence à frota;",
@@ -147,6 +147,66 @@
       "Se o veículo está cadastrado no Detran;",
       "Se houve alguma alteração recente de placa ou transferência de UF;",
       "Se o veículo encontra-se ativo no cadastro do Detran-RJ."
+    ]
+  },
+  "A adesão desta empresa ao SNE está CANCELADA. Reative a adesão no portal do DENATRAN para que a consulta seja possível": {
+    "titulo": "A adesão desta empresa ao SNE está CANCELADA. Reative a adesão no portal do DENATRAN para que a consulta seja possível",
+    "rotulo_identificadores": "CNPJs",
+    "campos_exibicao": [
+      "cnpj"
+    ],
+    "impacto": "As multas dos veículos cadastrados nesse CNPJ não foram capturadas.",
+    "orientacao": [
+      "⚠️ Ação necessária: Faça a adesão do CNPJ ao SNE",
+      "Para auxiliar, vamos encaminhar um manual mostrando o passo a passo fazer a adesão.",
+      "https://drive.google.com/file/d/1s9EVwvX-UgK7BTBF2YoGJZQqXhf-3Tny/view?usp=sharing"
+    ]
+  },
+  "Usuário ou senha inválidos": {
+    "titulo": "Usuário ou senha inválidos",
+    "rotulo_identificadores": "Placas",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As multas desses veículos não foram capturadas.",
+    "orientacao": [
+      "Solicitamos que verifiquem as credenciais cadastradas"
+    ]
+  },
+  "Renavam não localizados": {
+    "titulo": "Renavam não localizados",
+    "rotulo_identificadores": "Placas",
+    "campos_exibicao": [
+      "placa",
+      "renavam"
+    ],
+    "impacto": "As multas desses veículos não foram capturadas.",
+    "orientacao": [
+      "Solicitamos que:",
+      "Verifiquem o cadastro do veículo;",
+      "Verifiquem o Renavam do veículo" 
+    ]
+  },
+  "O veículo consultado está protegido. Entre em contato com o proprietário do veículo": {
+    "titulo": "O veículo consultado está protegido.",
+    "rotulo_identificadores": "Placas",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As multas desses veículos não foram capturadas.",
+    "orientacao": [
+      "Solicitamos que entrem no portal Detran SC, e façam o desbloqueio do veículo."
+    ]
+  },
+  "Certificado Digital revogado. Favor verificar e tentar novamente": {
+    "titulo": "Certificado Digital revogado. Favor verificar e tentar novamente",
+    "rotulo_identificadores": "CNPJs",
+    "campos_exibicao": [
+      "cnpj"
+    ],
+    "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
+    "orientacao": [
+      "Solicitamos que atualizem o certificado digital na plataforma"
     ]
   }
 }

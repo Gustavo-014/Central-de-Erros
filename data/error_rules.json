@@ -39,6 +39,14 @@
     {
       "de": "Ve�culo n�o cadastrado",
       "para": "Veículo não encontrado"
+    },
+    {
+      "de": "Usuário e/ou senha inválidos. (ERL0003900)",
+      "para": "Usuário e/ou senha inválidos."
+    },
+    {
+      "de": "Usuário e/ou senha inválidos. (ERL0003500)",
+      "para": "Usuário e/ou senha inválidos."
     }
   ]
 }
