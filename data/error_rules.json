@@ -10,7 +10,6 @@
     "Nenhum resultado encontrado",
     "java.io.IOException: Connection was closed",
     "Infração não encontrada no SNE",
-    "A placa informada não foi encontrada em nossos sistemas",
     "VeiculoService.obterVeiculoPRPorRenavam(): Veículo não cadastrado!"
   ],
   "prefixos": [

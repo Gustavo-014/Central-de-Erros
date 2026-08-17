@@ -208,5 +208,53 @@
     "orientacao": [
       "Solicitamos que atualizem o certificado digital na plataforma"
     ]
+  },
+  "Documento Proprietario informado não confere com o proprietario do veiculo.": {
+    "titulo": "Documento Proprietario informado não confere com o proprietario do veiculo.",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para esses veículos",
+    "orientacao": [
+      "Solicitamos que verifiquem:",
+      "O cadastro do veículo",
+      "O documento do proprietário do veículo"
+    ]
+  },
+  "Veículo não pertence a PE e sem débitos a pagar!": {
+    "titulo": "Veículo não pertence a PE e sem débitos a pagar!",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para esses veículos",
+    "orientacao": [
+      "Solicitamos que verifiquem se os veículos são licenciados no estado de Pernambuco (PE)"
+    ]
+  },
+  "O usuário precisa liberar as placas para compartilhamento no portal do Detran-PE com certificado digital": {
+    "titulo": "O usuário precisa liberar as placas para compartilhamento no portal do Detran-PE com certificado digital",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para esses veículos",
+    "orientacao": [
+      "Solicitamos que verifiquem se os veículos são licenciados no estado de Pernambuco (PE)"
+    ]
+  },
+  "Renavam fornecido não cadastrado!": {
+    "titulo": "Renavam fornecido não cadastrado!",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para esses veículos",
+    "orientacao": [
+      "Solicitamos que:",
+      "Verifiquem o cadastro do veículo;",
+      "Verifiquem o Renavam do veículo" 
+    ]
   }
 }
