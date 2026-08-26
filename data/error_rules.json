@@ -10,7 +10,8 @@
     "Nenhum resultado encontrado",
     "java.io.IOException: Connection was closed",
     "Infração não encontrada no SNE",
-    "VeiculoService.obterVeiculoPRPorRenavam(): Veículo não cadastrado!"
+    "VeiculoService.obterVeiculoPRPorRenavam(): Veículo não cadastrado!",
+    "Substituida por reprocesso do agente"
   ],
   "prefixos": [
     {

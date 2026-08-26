@@ -34,7 +34,7 @@
     ],
     "impacto": "Não foi possível capturar as multas no portal.",
     "orientacao": [
-      "Nos passem em qual CNPJ o veículo está cadastrado."
+      "Nos informem em qual CNPJ o veículo está cadastrado."
     ]
   },
   "Verifique no portal sua adesão ao SNE e tente novamente.": {
@@ -106,7 +106,9 @@
     ],
     "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
     "orientacao": [
-      "Solicitamos que atualizem o certificado digital na plataforma"
+      "⚠️ Ação necessária: Atualize o certificado digital na plataforma",
+      "Para auxiliar, vamos encaminhar um manual mostrando o passo a passo para atualizar o certificado.",
+      "https://drive.google.com/file/d/12lZ05WHZ_eLwVy83iAw1VvQ9rumXSnnV/view?usp=sharing"
     ]
     
   },
@@ -123,9 +125,9 @@
   },
   "CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ": {
     "titulo": "CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ",
-    "rotulo_identificadores": "Veículos",
+    "rotulo_identificadores": "CNPJs",
     "campos_exibicao": [
-      "placa"
+      "cnpj"
     ],
     "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
     "orientacao": [
