@@ -1,14 +1,31 @@
+import importlib
 import json
-from typing import Any
+import urllib.parse
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+import core.db
+importlib.reload(core.db)
+
+from core.db import (
+    check_errors_sent_recently,
+    delete_client_contact,
+    get_all_contacts,
+    get_client_contact,
+    register_client_all_errors_sent,
+    save_client_contact,
+)
 from core.excel_reader import read_excel
 from core.message_builder import build_messages
 from core.processor import process_dataframe
 from core.validator import validate_columns
+
+# Cooldown fixo de 1 dia (24h)
+COOLDOWN_DAYS = 1
 
 # Configuração da Página
 st.set_page_config(
@@ -16,9 +33,11 @@ st.set_page_config(
     layout="centered"
 )
 
-# Inicializar Estado de Mensagens Enviadas no Session State
+# Inicializar Estado de Mensagens Enviadas e Resolvidas no Session State
 if "enviados" not in st.session_state:
     st.session_state.enviados = {}
+if "resolvidos" not in st.session_state:
+    st.session_state.resolvidos = {}
 
 # Estilização CSS Avançada (Fundo Violeta/Índigo com Gradiente Fluido & Glassmorphism)
 st.markdown(
@@ -43,7 +62,7 @@ st.markdown(
     .sub-title {
         color: #94a3b8;
         font-size: 1.05rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
     }
 
     /* Cards de Métricas em Glassmorphism */
@@ -104,9 +123,32 @@ st.markdown(
         border-color: rgba(168, 85, 247, 0.4) !important;
     }
 
-    /* Estilização para Clientes Marcados como Enviados */
-    .client-enviado {
-        opacity: 0.65;
+    /* Alerta de Cooldown / Duplicidade */
+    .cooldown-alert {
+        background: rgba(234, 179, 8, 0.12);
+        border: 1px solid rgba(234, 179, 8, 0.4);
+        color: #fde047;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Tag de Contato */
+    .contact-badge {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        background: rgba(99, 102, 241, 0.2);
+        color: #c7d2fe;
+        border: 1px solid rgba(139, 92, 246, 0.4);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
     
     /* Input de Pesquisa */
@@ -121,14 +163,108 @@ st.markdown(
 
 # Header da Aplicação
 st.markdown('<div class="main-title">Central de Erros</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Automação de comunicação de erros de usuário.</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Automação de comunicação de erros de usuário e integração WhatsApp.</div>', unsafe_allow_html=True)
 
-# Upload de Arquivo
-uploaded_file = st.file_uploader("Selecione ou arraste a planilha (.xlsx, .xlsm)", type=["xlsx", "xlsm"])
+# Barra Lateral: Gestão de Contatos WhatsApp
+with st.sidebar:
+    st.markdown("### 📱 Grupos e Contatos WhatsApp")
+    st.caption("Cadastre o **Nome do Grupo no WhatsApp** ou o telefone para cada cliente.")
+    
+    with st.expander("➕ Cadastrar / Editar Contato", expanded=False):
+        novo_cliente = st.text_input("Nome do Cliente (Nome da Conta)", key="side_cli_nome")
+        tipo_contato = st.selectbox(
+            "Tipo de Destino",
+            options=["Nome do Grupo no WhatsApp", "Telefone (Individual)", "Link de Convite"],
+            index=0,
+            key="side_tipo_contato"
+        )
+        
+        tipo_map = {
+            "Nome do Grupo no WhatsApp": "group_name",
+            "Telefone (Individual)": "phone",
+            "Link de Convite": "group_link",
+        }
+        
+        placeholder_text = (
+            "Ex: Frota ABC - Suporte" if tipo_contato == "Nome do Grupo no WhatsApp"
+            else "Ex: 11999998888" if tipo_contato == "Telefone (Individual)"
+            else "Ex: https://chat.whatsapp.com/..."
+        )
+        novo_contato = st.text_input("Identificador / Valor", key="side_cli_contato", placeholder=placeholder_text)
+        
+        if st.button("💾 Salvar Destino", use_container_width=True):
+            if novo_cliente and novo_contato:
+                sucesso, msg = save_client_contact(novo_cliente, novo_contato, tipo_map[tipo_contato])
+                if sucesso:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+            else:
+                st.warning("Preencha todos os campos.")
 
-def render_instant_copy_button(text_to_copy: str, client_id: str):
-    """Gera um botão em HTML/JS instantâneo (0ms de latência) sem recarregar o Python."""
+    # Lista de contatos existentes
+    contatos_cadastrados = get_all_contacts()
+    if contatos_cadastrados:
+        with st.expander(f"📋 Destinos Cadastrados ({len(contatos_cadastrados)})", expanded=False):
+            for cli, info in list(contatos_cadastrados.items()):
+                tipo = info.get("contact_type", "group_name")
+                c_tipo_icon = "👥 Grupo" if tipo == "group_name" else "📞 Tel" if tipo == "phone" else "🔗 Link"
+                st.markdown(f"**{cli}**  \n`{c_tipo_icon}: {info['contact_value']}`")
+                if st.button(f"🗑️ Remover {cli}", key=f"del_{cli}"):
+                    delete_client_contact(cli)
+                    st.rerun()
+                st.write("---")
+    else:
+        st.info("Nenhum grupo ou contato cadastrado ainda.")
+
+    st.divider()
+    st.caption("🛡️ **Cooldown Automático:** Bloqueio de reenvios do mesmo erro configurado para **1 dia**.")
+
+# Funções de Renderização de Botões (Copy e WhatsApp)
+def render_action_buttons(text_to_copy: str, client_id: str, contact_info: Optional[Dict[str, str]]):
+    """Renderiza os botões de ação: Copiar Mensagem e Abrir WhatsApp com texto copiado."""
     escaped_text = json.dumps(text_to_copy)
+    
+    wa_button_html = ""
+    if contact_info:
+        c_type = contact_info.get("contact_type", "group_name")
+        c_val = contact_info.get("contact_value", "")
+        escaped_group = json.dumps(c_val)
+        
+        if c_type == "phone":
+            encoded_msg = urllib.parse.quote(text_to_copy)
+            wa_url = f"https://wa.me/{c_val}?text={encoded_msg}"
+            wa_button_html = f"""
+            <a href="{wa_url}" target="_blank" class="wa-btn" style="text-decoration:none;">
+                🟢 Abrir no WhatsApp
+            </a>
+            """
+        elif c_type == "group_link":
+            wa_button_html = f"""
+            <a href="{c_val}" target="_blank" class="wa-btn" style="text-decoration:none;" onclick='
+                navigator.clipboard.writeText({escaped_text});
+            '>
+                👥 Abrir Grupo (Texto Copiado)
+            </a>
+            """
+        else:
+            # group_name: abre WhatsApp Web e copia o texto da mensagem
+            wa_button_html = f"""
+            <button class="wa-btn" onclick='
+                navigator.clipboard.writeText({escaped_text}).then(function() {{
+                    window.open("https://web.whatsapp.com/", "_blank");
+                    var btn = document.getElementById("wa_btn_{client_id}");
+                    btn.innerText = "✅ Copiado! Cole no grupo";
+                    setTimeout(function() {{
+                        btn.innerText = "🟢 Abrir WhatsApp & Copiar";
+                    }}, 2500);
+                }});
+            ' id="wa_btn_{client_id}">
+                🟢 Abrir WhatsApp & Copiar
+            </button>
+            """
+
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -139,16 +275,18 @@ def render_instant_copy_button(text_to_copy: str, client_id: str):
             padding: 0;
             background: transparent;
             font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            gap: 10px;
         }}
         .copy-btn {{
-            width: 100%;
-            padding: 9px 16px;
+            flex: 1;
+            padding: 9px 14px;
             background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
             color: #ffffff;
             border: none;
             border-radius: 8px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13.5px;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
             transition: all 0.15s ease-in-out;
@@ -169,6 +307,28 @@ def render_instant_copy_button(text_to_copy: str, client_id: str):
             background: #10b981 !important;
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
         }}
+        .wa-btn {{
+            flex: 1.2;
+            padding: 9px 14px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13.5px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            transition: all 0.15s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }}
+        .wa-btn:hover {{
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+            transform: translateY(-1px);
+        }}
     </style>
     </head>
     <body>
@@ -185,10 +345,14 @@ def render_instant_copy_button(text_to_copy: str, client_id: str):
                 console.error("Erro ao copiar", err);
             }});
         '>📋 Copiar Mensagem</button>
+        {wa_button_html}
     </body>
     </html>
     """
     components.html(html_code, height=45)
+
+# Upload de Arquivo
+uploaded_file = st.file_uploader("Selecione ou arraste a planilha (.xlsx, .xlsm)", type=["xlsx", "xlsm"])
 
 if uploaded_file is None:
     st.info("💡 **Aguardando envio da planilha.** Suba um arquivo para começar.")
@@ -207,18 +371,35 @@ else:
             )
         else:
             # Processamento dos dados
-            dados, erros_sem_template, _ = process_dataframe(dataframe)
+            dados, erros_sem_template = process_dataframe(dataframe)
             mensagens = build_messages(dados)
 
             st.divider()
+
+            # Pré-calcular histórico de duplicidades/cooldown por cliente
+            duplicidades_por_cliente = {}
+            for cliente in mensagens:
+                erros_cli = list(dados.get(cliente, {}).keys())
+                hist = check_errors_sent_recently(cliente, erros_cli, days=COOLDOWN_DAYS)
+                duplicidades_por_cliente[cliente] = {err: dt for err, dt in hist.items() if dt is not None}
 
             # Garantir chaves no session_state para cada cliente
             for cliente in mensagens:
                 if cliente not in st.session_state.enviados:
                     st.session_state.enviados[cliente] = False
+                if cliente not in st.session_state.resolvidos:
+                    st.session_state.resolvidos[cliente] = False
 
             total_clientes = len(mensagens)
             total_enviados = sum(1 for v in st.session_state.enviados.values() if v)
+            total_resolvidos = sum(1 for v in st.session_state.resolvidos.values() if v)
+            # Concluídos considera enviados, resolvidos e já notificados recentemente (cooldown)
+            total_concluidos = sum(
+                1 for c in mensagens 
+                if st.session_state.enviados.get(c, False) 
+                or st.session_state.resolvidos.get(c, False) 
+                or len(duplicidades_por_cliente.get(c, {})) > 0
+            )
             total_erros_unicos = sum(len(erros) for erros in dados.values())
 
             # Resumo em Métricas Elegantes com Progresso
@@ -237,8 +418,8 @@ else:
                 st.markdown(
                     f"""
                     <div class="metric-card">
-                        <div class="metric-value">{total_enviados} / {total_clientes}</div>
-                        <div class="metric-label">Mensagens Enviadas</div>
+                        <div class="metric-value">{total_concluidos} / {total_clientes}</div>
+                        <div class="metric-label">Concluídos</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -256,7 +437,7 @@ else:
 
             # Barra de progresso visual
             if total_clientes > 0:
-                progresso = total_enviados / total_clientes
+                progresso = total_concluidos / total_clientes
                 st.progress(progresso)
 
             st.write("")
@@ -276,23 +457,116 @@ else:
             else:
                 for index, cliente in enumerate(clientes_filtrados):
                     mensagem = mensagens[cliente]
-                    qtd_erros = len(dados.get(cliente, {}))
+                    erros_do_cliente = list(dados.get(cliente, {}).keys())
+                    qtd_erros = len(erros_do_cliente)
                     is_enviado = st.session_state.enviados.get(cliente, False)
+                    is_resolvido = st.session_state.resolvidos.get(cliente, False)
 
-                    # Título dinâmico do card com status de envio
-                    status_prefix = "✅ " if is_enviado else "🏢 "
-                    status_suffix = " — [ENVIADO]" if is_enviado else ""
+                    # Recuperar histórico de cooldown pré-calculado
+                    erros_ja_enviados = duplicidades_por_cliente.get(cliente, {})
+                    tem_duplicidade = len(erros_ja_enviados) > 0
+
+                    # Buscar contato / nome de grupo cadastrado
+                    contact_info = get_client_contact(cliente)
+
+                    # Título dinâmico do card com status
+                    if is_enviado:
+                        status_prefix = "✅ "
+                        status_suffix = " — [ENVIADO]"
+                    elif is_resolvido:
+                        status_prefix = "🔧 "
+                        status_suffix = " — [RESOLVIDO]"
+                    elif tem_duplicidade:
+                        status_prefix = "⏳ "
+                        status_suffix = " — [JÁ NOTIFICADO HOJE/ONTEM]"
+                    else:
+                        status_prefix = "🏢 "
+                        status_suffix = ""
+
                     expander_label = f"{status_prefix}**{cliente}** ({qtd_erros} tipo{'s' if qtd_erros > 1 else ''} de erro){status_suffix}"
 
                     with st.expander(expander_label):
-                        # Checkbox de Controle de Envio
-                        enviado_check = st.checkbox(
-                            "Marcar mensagem como enviada ao cliente",
-                            value=is_enviado,
-                            key=f"chk_{cliente}_{index}"
-                        )
+                        # Alerta se houver erro já enviado recentemente (1 dia)
+                        if tem_duplicidade:
+                            st.markdown(
+                                """
+                                <div class="cooldown-alert">
+                                    <span>⏳ <b>Atenção (Cooldown 1 dia):</b> Este cliente já recebeu notificação recente para:</span>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+                            for err_nome, data_envio in erros_ja_enviados.items():
+                                try:
+                                    dt_fmt = datetime.strptime(data_envio, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M")
+                                except Exception:
+                                    dt_fmt = data_envio
+                                st.caption(f"• **{err_nome}** (enviado em {dt_fmt})")
+
+                        # Exibição do grupo cadastrado ou opção de cadastro rápido
+                        if contact_info:
+                            c_type = contact_info.get("contact_type", "group_name")
+                            c_tipo_label = (
+                                "Grupo no WhatsApp" if c_type == "group_name"
+                                else "Telefone" if c_type == "phone"
+                                else "Link do Grupo"
+                            )
+                            st.markdown(
+                                f"""
+                                <div class="contact-badge">
+                                    <span>👥 <b>{c_tipo_label}:</b> <code>{contact_info['contact_value']}</code></span>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.caption("ℹ️ *Grupo ou contato do WhatsApp ainda não cadastrado para este cliente.*")
+                            with st.expander("➕ Vincular Nome do Grupo no WhatsApp", expanded=False):
+                                quick_nome_grupo = st.text_input(
+                                    "Nome do Grupo no WhatsApp",
+                                    key=f"quick_g_{cliente}_{index}",
+                                    placeholder="Ex: Suporte - Frota ABC"
+                                )
+                                if st.button("Salvar Grupo", key=f"btn_save_{cliente}_{index}"):
+                                    if quick_nome_grupo:
+                                        ok, msg = save_client_contact(cliente, quick_nome_grupo, "group_name")
+                                        if ok:
+                                            st.success(msg)
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+
+                        # Checkboxes de Controle lado a lado
+                        col_env, col_res = st.columns(2)
+
+                        with col_env:
+                            enviado_check = st.checkbox(
+                                "✅ Enviado ao cliente",
+                                value=is_enviado,
+                                key=f"chk_env_{cliente}_{index}"
+                            )
+                        with col_res:
+                            resolvido_check = st.checkbox(
+                                "🔧 Resolvido",
+                                value=is_resolvido,
+                                key=f"chk_res_{cliente}_{index}"
+                            )
+
+                        # Exclusividade mútua + atualização de estado e registro no SQLite
+                        changed = False
                         if enviado_check != is_enviado:
                             st.session_state.enviados[cliente] = enviado_check
+                            if enviado_check:
+                                st.session_state.resolvidos[cliente] = False
+                                # Registrar no histórico SQLite
+                                register_client_all_errors_sent(cliente, erros_do_cliente, channel="whatsapp")
+                            changed = True
+                        elif resolvido_check != is_resolvido:
+                            st.session_state.resolvidos[cliente] = resolvido_check
+                            if resolvido_check:
+                                st.session_state.enviados[cliente] = False
+                            changed = True
+                        if changed:
                             st.rerun()
 
                         # Área de texto com a mensagem
@@ -303,9 +577,9 @@ else:
                             key=f"msg_{cliente}_{index}",
                             label_visibility="collapsed"
                         )
-                        
-                        # Botão de cópia INSTANTÂNEA via JS (sem reload de tela)
-                        render_instant_copy_button(mensagem, client_id=f"cli_{index}")
+
+                        # Botões de Ação (Copiar + Abrir WhatsApp)
+                        render_action_buttons(mensagem, client_id=f"cli_{index}", contact_info=contact_info)
 
             # Avisos de Erros sem Template (Discreto no final)
             if erros_sem_template:

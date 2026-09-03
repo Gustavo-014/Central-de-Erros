@@ -7,7 +7,6 @@
     "Erro inesperado. Por favor, tente novamente mais tarde. Caso o erro persista, notifique o time de desenvolvimento",
     "Erro com o serviço de captcha. Por favor, tente novamente mais tarde. Caso o erro persista, notifique o time de desenvolvimento",
     "Nenhum registro encontrado",
-    "Nenhum resultado encontrado",
     "java.io.IOException: Connection was closed",
     "Infração não encontrada no SNE",
     "VeiculoService.obterVeiculoPRPorRenavam(): Veículo não cadastrado!",
@@ -37,7 +36,7 @@
   ],
   "substituicoes": [
     {
-      "de": "Ve�culo n�o cadastrado",
+      "de": "Veículo não cadastrado",
       "para": "Veículo não encontrado"
     },
     {

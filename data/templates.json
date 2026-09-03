@@ -125,13 +125,13 @@
   },
   "CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ": {
     "titulo": "CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ",
-    "rotulo_identificadores": "CNPJs",
+    "rotulo_identificadores": "Placas",
     "campos_exibicao": [
-      "cnpj"
+      "placa"
     ],
     "impacto": "As consultas não foram realizadas para os veículos cadastrados nesse CNPJ",
     "orientacao": [
-      "Solicitamos que verifiquem:.",
+      "Solicitamos que verifiquem:",
       "O cadastro do veículo",
       "O CNPJ do proprietário do veículo"
     ]

@@ -7,14 +7,13 @@ from core.extractor import extract_occurrence
 from core.template_loader import load_templates
 
 
-def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List[Dict[str, str]]]], List[str], List[Dict[str, Any]]]:
+def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List[Dict[str, str]]]], List[str]]:
     """Extrai, normaliza, agrupa e elimina duplicados a partir da planilha."""
     result: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
     pending_errors: List[str] = []
-    debug_rows: List[Dict[str, Any]] = []
     templates = load_templates()
 
-    for _, row in dataframe.iterrows():
+    for row in dataframe.to_dict("records"):
         occurrence = extract_occurrence(row)
         cliente = occurrence.get("cliente") or ""
         erro_original = occurrence.get("erro_original") or ""
@@ -48,15 +47,6 @@ def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List
             if erro_normalizado not in pending_errors:
                 pending_errors.append(erro_normalizado)
 
-        debug_rows.append(
-            {
-                "Erro Original": erro_original,
-                "Erro Normalizado": erro_normalizado,
-                "Template Encontrado": erro_normalizado in templates,
-                "Cliente": cliente,
-            }
-        )
-
     return (
         {
             cliente: {
@@ -66,5 +56,4 @@ def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List
             for cliente in sorted(result)
         },
         pending_errors,
-        debug_rows,
     )

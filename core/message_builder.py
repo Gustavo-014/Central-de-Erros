@@ -2,22 +2,58 @@ import re
 from typing import Dict, List
 
 from core.template_loader import load_layout, load_templates
+from core.utils import normalize_text as _base_normalize
 
 
 def _normalize_text(value: str) -> str:
     """Normaliza texto para comparação tolerante em relação a formatação."""
-    normalized = re.sub(r"\s+", " ", value.strip())
-    if normalized.endswith("."):
-        normalized = normalized[:-1]
-    return normalized.casefold()
+    return _base_normalize(value).casefold()
 
 
-def _clean_orientation_text(value: str) -> str:
-    """Remove marcadores e a frase padrão de orientações para exibição limpa."""
-    cleaned = value.strip()
-    cleaned = re.sub(r"^(?:-\s*|•\s*)", "", cleaned)
-    cleaned = re.sub(r"^Solicitamos que verifiquem:\s*", "", cleaned, flags=re.IGNORECASE)
-    return cleaned.strip()
+def _format_orientations(orientations: List[str]) -> List[str]:
+    """Formata a lista de orientações, separando introduções, alertas e links de itens com marcadores."""
+    if not orientations:
+        return []
+
+    # Se houver apenas uma linha de orientação, exibe como texto simples (sem marcador)
+    if len(orientations) == 1:
+        cleaned = re.sub(r"^(?:-\s*|•\s*)", "", orientations[0].strip())
+        return [cleaned] if cleaned else []
+
+    formatted_lines: List[str] = []
+    is_in_bullet_list = False
+
+    for item in orientations:
+        cleaned = item.strip()
+        if not cleaned:
+            continue
+
+        # Remove marcadores existentes no início para padronizar
+        cleaned_no_bullet = re.sub(r"^(?:-\s*|•\s*)", "", cleaned).strip()
+
+        # Se termina com :. corrige para :
+        if cleaned_no_bullet.endswith(":."):
+            cleaned_no_bullet = cleaned_no_bullet[:-2] + ":"
+
+        # Links, alertas ou frases introdutórias terminadas em ':'
+        if (
+            cleaned.startswith("http://")
+            or cleaned.startswith("https://")
+            or cleaned.startswith("⚠️")
+            or cleaned_no_bullet.endswith(":")
+        ):
+            formatted_lines.append(cleaned_no_bullet)
+            is_in_bullet_list = cleaned_no_bullet.endswith(":")
+        elif is_in_bullet_list:
+            formatted_lines.append(f"• {cleaned_no_bullet}")
+        else:
+            # Texto explicativo geral (ex: 'Para auxiliar, vamos encaminhar...')
+            if cleaned.startswith("-") or cleaned.startswith("•"):
+                formatted_lines.append(f"• {cleaned_no_bullet}")
+            else:
+                formatted_lines.append(cleaned_no_bullet)
+
+    return formatted_lines
 
 
 def _format_identifiers(occurrence: Dict[str, str], fields: List[str]) -> str:
@@ -70,10 +106,8 @@ def build_messages(processed_data: Dict[str, Dict[str, List[Dict[str, str]]]]) -
                 lines.append("Impacto:")
                 lines.append(template.get("impacto", ""))
                 lines.append("")
-                for orientacao in template.get("orientacao", []):
-                    cleaned_orientation = _clean_orientation_text(orientacao)
-                    if cleaned_orientation:
-                        lines.append(f"• {cleaned_orientation}")
+                orientation_lines = _format_orientations(template.get("orientacao", []))
+                lines.extend(orientation_lines)
 
             lines.append("")
 

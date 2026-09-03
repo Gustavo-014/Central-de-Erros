@@ -3,21 +3,18 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import streamlit as st
 
+from core.utils import normalize_text as _normalize_text
+
+
+@st.cache_data
 def _load_rules() -> Dict[str, Any]:
     """Carrega as regras de normalização a partir de um arquivo JSON."""
     rules_path = Path(__file__).resolve().parent.parent / "data" / "error_rules.json"
 
     with rules_path.open("r", encoding="utf-8") as file:
         return json.load(file)
-
-
-def _normalize_text(value: str) -> str:
-    """Normaliza o texto removendo espaços extras e pontuações de formatação."""
-    normalized = re.sub(r"\s+", " ", value.strip())
-    if normalized.endswith("."):
-        normalized = normalized[:-1]
-    return normalized
 
 
 def _normalize_for_compare(value: str) -> str:
