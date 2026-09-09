@@ -19,7 +19,11 @@ from core.db import (
     register_client_all_errors_sent,
     save_client_contact,
 )
+from core.daily_db import get_snapshot_by_date
+from core.daily_service import compute_file_hash, extract_date_from_filename, record_daily_snapshot
+from core.daily_ui import render_acompanhamento_tab
 from core.excel_reader import read_excel
+from core.excel_exporter import count_errors_by_account, export_account_errors_to_excel, sanitize_filename
 from core.message_builder import build_messages
 from core.processor import process_dataframe
 from core.validator import validate_columns
@@ -30,7 +34,7 @@ COOLDOWN_DAYS = 1
 # Configuração da Página
 st.set_page_config(
     page_title="Central de Erros - Brobot",
-    layout="centered"
+    layout="wide"
 )
 
 # Inicializar Estado de Mensagens Enviadas e Resolvidas no Session State
@@ -128,6 +132,20 @@ st.markdown(
         background: rgba(234, 179, 8, 0.12);
         border: 1px solid rgba(234, 179, 8, 0.4);
         color: #fde047;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Alerta de Resolvido Anteriormente */
+    .resolved-alert {
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #6ee7b7;
         padding: 8px 12px;
         border-radius: 8px;
         font-size: 0.85rem;
@@ -351,240 +369,398 @@ def render_action_buttons(text_to_copy: str, client_id: str, contact_info: Optio
     """
     components.html(html_code, height=45)
 
-# Upload de Arquivo
-uploaded_file = st.file_uploader("Selecione ou arraste a planilha (.xlsx, .xlsm)", type=["xlsx", "xlsm"])
+def render_operacional_tab():
+    # 1. Campo Obrigatório: Data da análise / Data do Daily
+    col_up_date, col_up_file = st.columns([1.3, 2.7])
+    with col_up_date:
+        data_analise = st.date_input(
+            "📅 **Data da análise / Data do Daily:**",
+            value=datetime.now().date(),
+            format="DD/MM/YYYY",
+            help="Selecione a data oficial que este arquivo representa para o histórico e comparações da Daily.",
+            key="data_analise_input",
+        )
+    with col_up_file:
+        uploaded_file = st.file_uploader(
+            "Selecione ou arraste a planilha (.xlsx, .xlsm)",
+            type=["xlsx", "xlsm"],
+            key="operacional_file_uploader",
+        )
 
-if uploaded_file is None:
-    st.info("💡 **Aguardando envio da planilha.** Suba um arquivo para começar.")
-else:
-    try:
-        dataframe: Any = read_excel(uploaded_file)
-    except Exception as exc:
-        st.error(f"Erro ao ler o arquivo Excel: {exc}")
+    if uploaded_file is None:
+        st.info("💡 **Aguardando envio da planilha.** Defina a data da análise e selecione um arquivo para começar.")
     else:
-        is_valid, missing_columns = validate_columns(dataframe)
-
-        if not is_valid:
-            st.error(
-                "❌ **Planilha inválida.** As seguintes colunas obrigatórias estão ausentes:\n\n"
-                + "\n".join([f"• `{col}`" for col in missing_columns])
-            )
+        try:
+            dataframe: Any = read_excel(uploaded_file)
+        except Exception as exc:
+            st.error(f"Erro ao ler o arquivo Excel: {exc}")
         else:
-            # Processamento dos dados
-            dados, erros_sem_template = process_dataframe(dataframe)
-            mensagens = build_messages(dados)
+            is_valid, missing_columns = validate_columns(dataframe)
 
-            st.divider()
-
-            # Pré-calcular histórico de duplicidades/cooldown por cliente
-            duplicidades_por_cliente = {}
-            for cliente in mensagens:
-                erros_cli = list(dados.get(cliente, {}).keys())
-                hist = check_errors_sent_recently(cliente, erros_cli, days=COOLDOWN_DAYS)
-                duplicidades_por_cliente[cliente] = {err: dt for err, dt in hist.items() if dt is not None}
-
-            # Garantir chaves no session_state para cada cliente
-            for cliente in mensagens:
-                if cliente not in st.session_state.enviados:
-                    st.session_state.enviados[cliente] = False
-                if cliente not in st.session_state.resolvidos:
-                    st.session_state.resolvidos[cliente] = False
-
-            total_clientes = len(mensagens)
-            total_enviados = sum(1 for v in st.session_state.enviados.values() if v)
-            total_resolvidos = sum(1 for v in st.session_state.resolvidos.values() if v)
-            # Concluídos considera enviados, resolvidos e já notificados recentemente (cooldown)
-            total_concluidos = sum(
-                1 for c in mensagens 
-                if st.session_state.enviados.get(c, False) 
-                or st.session_state.resolvidos.get(c, False) 
-                or len(duplicidades_por_cliente.get(c, {})) > 0
-            )
-            total_erros_unicos = sum(len(erros) for erros in dados.values())
-
-            # Resumo em Métricas Elegantes com Progresso
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown(
-                    f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{total_clientes}</div>
-                        <div class="metric-label">Total Clientes</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+            if not is_valid:
+                st.error(
+                    "❌ **Planilha inválida.** As seguintes colunas obrigatórias estão ausentes:\n\n"
+                    + "\n".join([f"• `{col}`" for col in missing_columns])
                 )
-            with col2:
-                st.markdown(
-                    f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{total_concluidos} / {total_clientes}</div>
-                        <div class="metric-label">Concluídos</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            with col3:
-                st.markdown(
-                    f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{total_erros_unicos}</div>
-                        <div class="metric-label">Tipos de Erros</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            # Barra de progresso visual
-            if total_clientes > 0:
-                progresso = total_concluidos / total_clientes
-                st.progress(progresso)
-
-            st.write("")
-
-            # Pesquisa e Filtro por Cliente
-            termo_pesquisa = st.text_input("🔍 Pesquisar Cliente", placeholder="Digite o nome do cliente...")
-            
-            clientes_filtrados = [
-                cliente for cliente in mensagens 
-                if not termo_pesquisa or termo_pesquisa.lower() in cliente.lower()
-            ]
-
-            st.write("")
-
-            if not clientes_filtrados:
-                st.warning("Nenhum cliente encontrado com esse termo de busca.")
             else:
-                for index, cliente in enumerate(clientes_filtrados):
-                    mensagem = mensagens[cliente]
-                    erros_do_cliente = list(dados.get(cliente, {}).keys())
-                    qtd_erros = len(erros_do_cliente)
-                    is_enviado = st.session_state.enviados.get(cliente, False)
-                    is_resolvido = st.session_state.resolvidos.get(cliente, False)
+                # Processamento dos dados
+                dados, erros_sem_template = process_dataframe(dataframe)
+                mensagens = build_messages(dados)
+                contagem_registros = count_errors_by_account(dataframe)
 
-                    # Recuperar histórico de cooldown pré-calculado
-                    erros_ja_enviados = duplicidades_por_cliente.get(cliente, {})
-                    tem_duplicidade = len(erros_ja_enviados) > 0
+                # Persistência do snapshot diário com verificação e confirmação de duplicidade
+                target_date_str = data_analise.strftime("%Y-%m-%d")
+                target_date_fmt = data_analise.strftime("%d/%m/%Y")
+                file_bytes = uploaded_file.getvalue()
+                file_hash = compute_file_hash(file_bytes)
 
-                    # Buscar contato / nome de grupo cadastrado
-                    contact_info = get_client_contact(cliente)
+                existing_snap = get_snapshot_by_date(target_date_str)
+                replace_key = f"confirmed_replace_{target_date_str}_{file_hash}"
+                cancel_key = f"cancelled_replace_{target_date_str}_{file_hash}"
 
-                    # Título dinâmico do card com status
-                    if is_enviado:
-                        status_prefix = "✅ "
-                        status_suffix = " — [ENVIADO]"
-                    elif is_resolvido:
-                        status_prefix = "🔧 "
-                        status_suffix = " — [RESOLVIDO]"
-                    elif tem_duplicidade:
-                        status_prefix = "⏳ "
-                        status_suffix = " — [JÁ NOTIFICADO HOJE/ONTEM]"
+                if existing_snap and existing_snap["file_hash"] != file_hash:
+                    # Já existe snapshot para a data com conteúdo diferente
+                    if st.session_state.get(replace_key, False):
+                        # Usuário confirmou a substituição
+                        try:
+                            ok_snap, msg_snap = record_daily_snapshot(
+                                dados=dados,
+                                dataframe=dataframe,
+                                filename=uploaded_file.name,
+                                file_bytes=file_bytes,
+                                target_date=target_date_str,
+                                force_replace=True,
+                            )
+                            st.session_state["daily_snapshot_status"] = (ok_snap, f"Dados substituídos: {msg_snap}", target_date_str)
+                        except Exception as snap_exc:
+                            st.session_state["daily_snapshot_status"] = (False, f"Falha ao substituir snapshot diário: {snap_exc}", target_date_str)
+                    elif st.session_state.get(cancel_key, False):
+                        st.info(f"ℹ️ Substituição cancelada para **{target_date_fmt}**. Os dados históricos anteriores foram preservados.")
                     else:
-                        status_prefix = "🏢 "
-                        status_suffix = ""
-
-                    expander_label = f"{status_prefix}**{cliente}** ({qtd_erros} tipo{'s' if qtd_erros > 1 else ''} de erro){status_suffix}"
-
-                    with st.expander(expander_label):
-                        # Alerta se houver erro já enviado recentemente (1 dia)
-                        if tem_duplicidade:
-                            st.markdown(
-                                """
-                                <div class="cooldown-alert">
-                                    <span>⏳ <b>Atenção (Cooldown 1 dia):</b> Este cliente já recebeu notificação recente para:</span>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-                            for err_nome, data_envio in erros_ja_enviados.items():
-                                try:
-                                    dt_fmt = datetime.strptime(data_envio, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M")
-                                except Exception:
-                                    dt_fmt = data_envio
-                                st.caption(f"• **{err_nome}** (enviado em {dt_fmt})")
-
-                        # Exibição do grupo cadastrado ou opção de cadastro rápido
-                        if contact_info:
-                            c_type = contact_info.get("contact_type", "group_name")
-                            c_tipo_label = (
-                                "Grupo no WhatsApp" if c_type == "group_name"
-                                else "Telefone" if c_type == "phone"
-                                else "Link do Grupo"
-                            )
-                            st.markdown(
-                                f"""
-                                <div class="contact-badge">
-                                    <span>👥 <b>{c_tipo_label}:</b> <code>{contact_info['contact_value']}</code></span>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-                        else:
-                            st.caption("ℹ️ *Grupo ou contato do WhatsApp ainda não cadastrado para este cliente.*")
-                            with st.expander("➕ Vincular Nome do Grupo no WhatsApp", expanded=False):
-                                quick_nome_grupo = st.text_input(
-                                    "Nome do Grupo no WhatsApp",
-                                    key=f"quick_g_{cliente}_{index}",
-                                    placeholder="Ex: Suporte - Frota ABC"
-                                )
-                                if st.button("Salvar Grupo", key=f"btn_save_{cliente}_{index}"):
-                                    if quick_nome_grupo:
-                                        ok, msg = save_client_contact(cliente, quick_nome_grupo, "group_name")
-                                        if ok:
-                                            st.success(msg)
-                                            st.rerun()
-                                        else:
-                                            st.error(msg)
-
-                        # Checkboxes de Controle lado a lado
-                        col_env, col_res = st.columns(2)
-
-                        with col_env:
-                            enviado_check = st.checkbox(
-                                "✅ Enviado ao cliente",
-                                value=is_enviado,
-                                key=f"chk_env_{cliente}_{index}"
-                            )
-                        with col_res:
-                            resolvido_check = st.checkbox(
-                                "🔧 Resolvido",
-                                value=is_resolvido,
-                                key=f"chk_res_{cliente}_{index}"
-                            )
-
-                        # Exclusividade mútua + atualização de estado e registro no SQLite
-                        changed = False
-                        if enviado_check != is_enviado:
-                            st.session_state.enviados[cliente] = enviado_check
-                            if enviado_check:
-                                st.session_state.resolvidos[cliente] = False
-                                # Registrar no histórico SQLite
-                                register_client_all_errors_sent(cliente, erros_do_cliente, channel="whatsapp")
-                            changed = True
-                        elif resolvido_check != is_resolvido:
-                            st.session_state.resolvidos[cliente] = resolvido_check
-                            if resolvido_check:
-                                st.session_state.enviados[cliente] = False
-                            changed = True
-                        if changed:
-                            st.rerun()
-
-                        # Área de texto com a mensagem
-                        st.text_area(
-                            label="Mensagem Pronta",
-                            value=mensagem,
-                            height=250,
-                            key=f"msg_{cliente}_{index}",
-                            label_visibility="collapsed"
+                        # Exibir alerta claro com botões de confirmação
+                        orig_file = existing_snap.get("file_name", "planilha anterior")
+                        orig_tot = existing_snap.get("total_erros", 0)
+                        st.warning(
+                            f"⚠️ **Já existe um histórico salvo para {target_date_fmt}.**\n\n"
+                            f"• Histórico atual: arquivo `{orig_file}` ({orig_tot} erros)\n\n"
+                            f"Se você continuar, os dados desse dia serão **substituídos** pelo arquivo atual (`{uploaded_file.name}`)."
                         )
+                        col_c, col_s = st.columns([1, 1.8])
+                        with col_c:
+                            if st.button("❌ Cancelar", key=f"btn_cancel_{target_date_str}_{file_hash}"):
+                                st.session_state[cancel_key] = True
+                                st.session_state[replace_key] = False
+                                st.rerun()
+                        with col_s:
+                            if st.button("🔄 Substituir dados", type="primary", key=f"btn_subst_{target_date_str}_{file_hash}"):
+                                try:
+                                    ok_snap, msg_snap = record_daily_snapshot(
+                                        dados=dados,
+                                        dataframe=dataframe,
+                                        filename=uploaded_file.name,
+                                        file_bytes=file_bytes,
+                                        target_date=target_date_str,
+                                        force_replace=True,
+                                    )
+                                    st.session_state[replace_key] = True
+                                    st.session_state[cancel_key] = False
+                                    st.session_state["daily_snapshot_status"] = (ok_snap, f"Dados substituídos: {msg_snap}", target_date_str)
+                                except Exception as snap_exc:
+                                    st.session_state["daily_snapshot_status"] = (False, f"Falha ao substituir snapshot diário: {snap_exc}", target_date_str)
+                                st.rerun()
+                else:
+                    # Não existe ou mesmo arquivo: gravar normalmente
+                    process_key = f"{file_hash}_{target_date_str}"
+                    if st.session_state.get("last_processed_key") != process_key:
+                        try:
+                            ok_snap, msg_snap = record_daily_snapshot(
+                                dados=dados,
+                                dataframe=dataframe,
+                                filename=uploaded_file.name,
+                                file_bytes=file_bytes,
+                                target_date=target_date_str,
+                                force_replace=False,
+                            )
+                            st.session_state["last_processed_key"] = process_key
+                            st.session_state["daily_snapshot_status"] = (ok_snap, msg_snap, target_date_str)
+                        except Exception as snap_exc:
+                            st.session_state["daily_snapshot_status"] = (False, f"Falha ao salvar snapshot diário: {snap_exc}", target_date_str)
 
-                        # Botões de Ação (Copiar + Abrir WhatsApp)
-                        render_action_buttons(mensagem, client_id=f"cli_{index}", contact_info=contact_info)
+                st.divider()
 
-            # Avisos de Erros sem Template (Discreto no final)
-            if erros_sem_template:
+                # Pré-calcular histórico de duplicidades/cooldown por cliente
+                duplicidades_por_cliente = {}
+                for cliente in mensagens:
+                    erros_cli = list(dados.get(cliente, {}).keys())
+                    hist = check_errors_sent_recently(cliente, erros_cli, days=COOLDOWN_DAYS)
+                    duplicidades_por_cliente[cliente] = {err: dt for err, dt in hist.items() if dt is not None}
+
+                # Garantir chaves no session_state para cada cliente
+                for cliente in mensagens:
+                    if cliente not in st.session_state.enviados:
+                        st.session_state.enviados[cliente] = False
+                    if cliente not in st.session_state.resolvidos:
+                        st.session_state.resolvidos[cliente] = False
+
+                total_clientes = len(mensagens)
+                total_enviados = sum(1 for v in st.session_state.enviados.values() if v)
+                total_resolvidos = sum(1 for v in st.session_state.resolvidos.values() if v)
+                # Concluídos considera enviados, resolvidos e já notificados recentemente (cooldown)
+                total_concluidos = sum(
+                    1 for c in mensagens 
+                    if st.session_state.enviados.get(c, False) 
+                    or st.session_state.resolvidos.get(c, False) 
+                    or len(duplicidades_por_cliente.get(c, {})) > 0
+                )
+                total_erros_unicos = sum(len(erros) for erros in dados.values())
+
+                # Resumo em Métricas Elegantes com Progresso
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <div class="metric-value">{total_clientes}</div>
+                            <div class="metric-label">Total Clientes</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                with col2:
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <div class="metric-value">{total_concluidos} / {total_clientes}</div>
+                            <div class="metric-label">Concluídos</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                with col3:
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <div class="metric-value">{total_erros_unicos}</div>
+                            <div class="metric-label">Tipos de Erros</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                # Barra de progresso visual
+                if total_clientes > 0:
+                    progresso = total_concluidos / total_clientes
+                    st.progress(progresso)
+
+                if "daily_snapshot_status" in st.session_state:
+                    status_tuple = st.session_state["daily_snapshot_status"]
+                    ok_s = status_tuple[0]
+                    msg_s = status_tuple[1]
+                    d_s = status_tuple[2] if len(status_tuple) > 2 else ""
+                    try:
+                        d_fmt = datetime.strptime(d_s, "%Y-%m-%d").strftime("%d/%m/%Y")
+                        dt_label = f" ({d_fmt})"
+                    except Exception:
+                        dt_label = ""
+                    if ok_s:
+                        st.caption(f"💾 **Histórico Daily{dt_label}:** {msg_s} *(Acesse a aba 📊 Acompanhamento para filtrar e analisar)*")
+                    else:
+                        st.warning(f"⚠️ **Histórico Daily{dt_label}:** {msg_s}")
+
                 st.write("")
-                with st.expander("⚠️ **Aviso: Erros pendentes de cadastro de template**"):
-                    st.write("Os seguintes erros foram encontrados na planilha mas não possuem template cadastrado no sistema:")
-                    for erro in erros_sem_template:
-                        st.write(f"• `{erro}`")
+
+                # Pesquisa e Filtro por Cliente
+                termo_pesquisa = st.text_input("🔍 Pesquisar Cliente", placeholder="Digite o nome do cliente...")
+
+                clientes_filtrados = [
+                    cliente for cliente in mensagens 
+                    if not termo_pesquisa or termo_pesquisa.lower() in cliente.lower()
+                ]
+
+                st.write("")
+
+                if not clientes_filtrados:
+                    st.warning("Nenhum cliente encontrado com esse termo de busca.")
+                else:
+                    for index, cliente in enumerate(clientes_filtrados):
+                        mensagem = mensagens[cliente]
+                        erros_do_cliente = list(dados.get(cliente, {}).keys())
+                        qtd_erros = len(erros_do_cliente)
+                        is_enviado = st.session_state.enviados.get(cliente, False)
+                        is_resolvido = st.session_state.resolvidos.get(cliente, False)
+
+                        # Recuperar histórico de cooldown pré-calculado
+                        historico_cliente = duplicidades_por_cliente.get(cliente, {})
+                        erros_resolvidos_ant = {err: info["sent_at"] for err, info in historico_cliente.items() if info.get("channel") == "resolvido"}
+                        erros_notificados_ant = {err: info["sent_at"] for err, info in historico_cliente.items() if info.get("channel") != "resolvido"}
+
+                        tem_resolvido = len(erros_resolvidos_ant) > 0
+                        tem_notificado = len(erros_notificados_ant) > 0
+
+                        # Buscar contato / nome de grupo cadastrado
+                        contact_info = get_client_contact(cliente)
+
+                        # Título dinâmico do card com status
+                        if is_enviado:
+                            status_prefix = "✅ "
+                            status_suffix = " — [ENVIADO]"
+                        elif is_resolvido:
+                            status_prefix = "🔧 "
+                            status_suffix = " — [RESOLVIDO]"
+                        elif tem_resolvido:
+                            status_prefix = "🔧 "
+                            status_suffix = " — [JÁ RESOLVIDO HOJE/ONTEM]"
+                        elif tem_notificado:
+                            status_prefix = "⏳ "
+                            status_suffix = " — [JÁ NOTIFICADO HOJE/ONTEM]"
+                        else:
+                            status_prefix = "🏢 "
+                            status_suffix = ""
+
+                        expander_label = f"{status_prefix}**{cliente}** ({qtd_erros} tipo{'s' if qtd_erros > 1 else ''} de erro){status_suffix}"
+
+                        with st.expander(expander_label):
+                            # Alerta se houver erro já resolvido recentemente (1 dia)
+                            if tem_resolvido:
+                                st.markdown(
+                                    """
+                                    <div class="resolved-alert">
+                                        <span>🔧 <b>Atenção (Resolvido recentemente):</b> Este erro já foi marcado como resolvido para este cliente:</span>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                                for err_nome, data_envio in erros_resolvidos_ant.items():
+                                    try:
+                                        dt_fmt = datetime.strptime(data_envio, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M")
+                                    except Exception:
+                                        dt_fmt = data_envio
+                                    st.caption(f"• **{err_nome}** (resolvido em {dt_fmt})")
+
+                            # Alerta se houver erro já enviado recentemente (1 dia)
+                            if tem_notificado:
+                                st.markdown(
+                                    """
+                                    <div class="cooldown-alert">
+                                        <span>⏳ <b>Atenção (Cooldown 1 dia):</b> Este cliente já recebeu notificação recente para:</span>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                                for err_nome, data_envio in erros_notificados_ant.items():
+                                    try:
+                                        dt_fmt = datetime.strptime(data_envio, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M")
+                                    except Exception:
+                                        dt_fmt = data_envio
+                                    st.caption(f"• **{err_nome}** (enviado em {dt_fmt})")
+
+                            # Exibição do grupo cadastrado ou opção de cadastro rápido
+                            if contact_info:
+                                c_type = contact_info.get("contact_type", "group_name")
+                                c_tipo_label = (
+                                    "Grupo no WhatsApp" if c_type == "group_name"
+                                    else "Telefone" if c_type == "phone"
+                                    else "Link do Grupo"
+                                )
+                                st.markdown(
+                                    f"""
+                                    <div class="contact-badge">
+                                        <span>👥 <b>{c_tipo_label}:</b> <code>{contact_info['contact_value']}</code></span>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                            else:
+                                st.caption("ℹ️ *Grupo ou contato do WhatsApp ainda não cadastrado para este cliente.*")
+                                with st.expander("➕ Vincular Nome do Grupo no WhatsApp", expanded=False):
+                                    quick_nome_grupo = st.text_input(
+                                        "Nome do Grupo no WhatsApp",
+                                        key=f"quick_g_{cliente}_{index}",
+                                        placeholder="Ex: Suporte - Frota ABC"
+                                    )
+                                    if st.button("Salvar Grupo", key=f"btn_save_{cliente}_{index}"):
+                                        if quick_nome_grupo:
+                                            ok, msg = save_client_contact(cliente, quick_nome_grupo, "group_name")
+                                            if ok:
+                                                st.success(msg)
+                                                st.rerun()
+                                            else:
+                                                st.error(msg)
+
+                            # Checkboxes de Controle lado a lado
+                            col_env, col_res = st.columns(2)
+
+                            with col_env:
+                                enviado_check = st.checkbox(
+                                    "✅ Enviado ao cliente",
+                                    value=is_enviado,
+                                    key=f"chk_env_{cliente}_{index}"
+                                )
+                            with col_res:
+                                resolvido_check = st.checkbox(
+                                    "🔧 Resolvido",
+                                    value=is_resolvido,
+                                    key=f"chk_res_{cliente}_{index}"
+                                )
+
+                            # Exclusividade mútua + atualização de estado e registro no SQLite
+                            changed = False
+                            if enviado_check != is_enviado:
+                                st.session_state.enviados[cliente] = enviado_check
+                                if enviado_check:
+                                    st.session_state.resolvidos[cliente] = False
+                                    # Registrar no histórico SQLite como enviado
+                                    register_client_all_errors_sent(cliente, erros_do_cliente, channel="whatsapp")
+                                changed = True
+                            elif resolvido_check != is_resolvido:
+                                st.session_state.resolvidos[cliente] = resolvido_check
+                                if resolvido_check:
+                                    st.session_state.enviados[cliente] = False
+                                    # Registrar no histórico SQLite como resolvido
+                                    register_client_all_errors_sent(cliente, erros_do_cliente, channel="resolvido")
+                                changed = True
+                            if changed:
+                                st.rerun()
+
+                            # Área de texto com a mensagem
+                            st.text_area(
+                                label="Mensagem Pronta",
+                                value=mensagem,
+                                height=250,
+                                key=f"msg_{cliente}_{index}",
+                                label_visibility="collapsed"
+                            )
+
+                            # Botão de Exportação Excel (contas com mais de 10 registros)
+                            qtd_registros_conta = contagem_registros.get(cliente, 0)
+                            if qtd_registros_conta > 10:
+                                excel_bytes = export_account_errors_to_excel(dataframe, cliente)
+                                nome_arquivo = f"{sanitize_filename(cliente)} - Erros de usuários.xlsx"
+                                st.download_button(
+                                    label=f"📥 Exportar Excel ({qtd_registros_conta} registros)",
+                                    data=excel_bytes,
+                                    file_name=nome_arquivo,
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    key=f"dl_excel_{cliente}_{index}",
+                                )
+
+                            # Botões de Ação (Copiar + Abrir WhatsApp)
+                            render_action_buttons(mensagem, client_id=f"cli_{index}", contact_info=contact_info)
+
+                # Avisos de Erros sem Template (Discreto no final)
+                if erros_sem_template:
+                    st.write("")
+                    with st.expander("⚠️ **Aviso: Erros pendentes de cadastro de template**"):
+                        st.write("Os seguintes erros foram encontrados na planilha mas não possuem template cadastrado no sistema:")
+                        for erro in erros_sem_template:
+                            st.write(f"• `{erro}`")
+
+
+# Navegação Principal em Abas
+tab_operacional, tab_acompanhamento = st.tabs(["⚡ Operacional (Envio)", "📊 Acompanhamento"])
+
+with tab_operacional:
+    render_operacional_tab()
+
+with tab_acompanhamento:
+    render_acompanhamento_tab()

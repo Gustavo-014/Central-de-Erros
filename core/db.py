@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
+from contextlib import contextmanager
+
+
 def get_db_path() -> Path:
     """Retorna o caminho para o arquivo SQLite de histórico e contatos."""
     data_dir = Path(__file__).resolve().parent.parent / "data"
@@ -12,11 +15,16 @@ def get_db_path() -> Path:
     return data_dir / "history.db"
 
 
-def get_connection() -> sqlite3.Connection:
-    """Retorna uma conexão com o banco de dados SQLite."""
+@contextmanager
+def get_connection():
+    """Retorna um gerenciador de contexto para conexão SQLite com foreign keys habilitadas e fechamento garantido."""
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
-    return conn
+    conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
@@ -57,7 +65,95 @@ def init_db() -> None:
             ON sent_history (client_name, error_normalized, sent_at)
             """
         )
+
+        # 1. Tabela Principal de Snapshots Diários
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS daily_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data TEXT NOT NULL UNIQUE,          -- 'YYYY-MM-DD'
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                file_name TEXT,                     -- Informativo
+                file_hash TEXT NOT NULL,            -- SHA-256 do arquivo
+                total_erros INTEGER NOT NULL DEFAULT 0,
+                erros_consulta INTEGER NOT NULL DEFAULT 0,
+                erros_usuario INTEGER NOT NULL DEFAULT 0,
+                erros_nao_classificados INTEGER NOT NULL DEFAULT 0,
+                clientes_afetados INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+
+        # 2. Indicadores Consolidados por Cliente (com UNIQUE)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS daily_clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                snapshot_id INTEGER NOT NULL,
+                cliente TEXT NOT NULL,
+                total_erros INTEGER NOT NULL DEFAULT 0,
+                erros_consulta INTEGER NOT NULL DEFAULT 0,
+                erros_usuario INTEGER NOT NULL DEFAULT 0,
+                erros_nao_classificados INTEGER NOT NULL DEFAULT 0,
+                -- Campos reservados para futura evolução operacional:
+                cliente_comunicado INTEGER DEFAULT 0,
+                data_ultimo_contato TEXT,
+                qtd_fups INTEGER DEFAULT 0,
+                proxima_acao TEXT,
+                responsavel TEXT,
+                prazo TEXT,
+                risco TEXT,
+                status TEXT DEFAULT 'pendente',
+                intervencao_lideranca INTEGER DEFAULT 0,
+                FOREIGN KEY (snapshot_id) REFERENCES daily_snapshots(id) ON DELETE CASCADE,
+                UNIQUE(snapshot_id, cliente)
+            )
+            """
+        )
+
+        # 3. Detalhamento de Erros por Cliente (com UNIQUE)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS daily_erros (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                snapshot_id INTEGER NOT NULL,
+                cliente TEXT NOT NULL,
+                erro TEXT NOT NULL,
+                tipo TEXT NOT NULL,                 -- 'consulta', 'usuario' ou 'nao_classificado'
+                quantidade INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (snapshot_id) REFERENCES daily_snapshots(id) ON DELETE CASCADE,
+                UNIQUE(snapshot_id, cliente, erro, tipo)
+            )
+            """
+        )
+
+        # Índices de performance para Daily
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_snapshots_data ON daily_snapshots(data)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_snapshots_hash ON daily_snapshots(file_hash)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_clientes_snapshot ON daily_clientes(snapshot_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_clientes_cliente ON daily_clientes(cliente)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_snapshot ON daily_erros(snapshot_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_cliente ON daily_erros(snapshot_id, cliente)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_erro ON daily_erros(erro)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_tipo ON daily_erros(tipo)")
+
         conn.commit()
+
+
+def reset_daily_db() -> None:
+    """
+    Remove exclusivamente as tabelas da funcionalidade Daily (daily_erros, daily_clientes, daily_snapshots)
+    e as recria via init_db(), preservando intactos client_contacts e sent_history.
+    ATENÇÃO: Deve ser chamado apenas para resets manuais ou rotinas de migração controladas,
+    NUNCA na inicialização normal do Streamlit.
+    """
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS daily_erros")
+        cursor.execute("DROP TABLE IF EXISTS daily_clientes")
+        cursor.execute("DROP TABLE IF EXISTS daily_snapshots")
+        conn.commit()
+    init_db()
 
 
 def sanitize_phone(phone: str) -> str:
@@ -218,21 +314,21 @@ def get_recent_sent_history(client_name: str, days: int = 1) -> List[Dict[str, s
         ]
 
 
-def check_errors_sent_recently(client_name: str, errors: List[str], days: int = 1) -> Dict[str, Optional[str]]:
+def check_errors_sent_recently(client_name: str, errors: List[str], days: int = 1) -> Dict[str, Optional[Dict[str, str]]]:
     """
-    Para uma lista de erros de um cliente, retorna um dicionário {erro: data_ultimo_envio ou None}
-    indicando quais erros já foram enviados dentro do período de cooldown de 1 dia.
+    Para uma lista de erros de um cliente, retorna um dicionário {erro: {'sent_at': ..., 'channel': ...} ou None}
+    indicando quais erros já foram enviados ou resolvidos dentro do período de cooldown de 1 dia.
     """
     init_db()
     cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
-    result: Dict[str, Optional[str]] = {err: None for err in errors}
+    result: Dict[str, Optional[Dict[str, str]]] = {err: None for err in errors}
 
     with get_connection() as conn:
         cursor = conn.cursor()
         for err in errors:
             cursor.execute(
                 """
-                SELECT sent_at 
+                SELECT sent_at, channel 
                 FROM sent_history 
                 WHERE client_name = ? AND error_normalized = ? AND sent_at >= ?
                 ORDER BY sent_at DESC 
@@ -242,6 +338,9 @@ def check_errors_sent_recently(client_name: str, errors: List[str], days: int = 
             )
             row = cursor.fetchone()
             if row:
-                result[err] = row["sent_at"]
+                result[err] = {
+                    "sent_at": row["sent_at"],
+                    "channel": row["channel"] or "whatsapp",
+                }
 
     return result
