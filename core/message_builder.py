@@ -92,20 +92,23 @@ def build_messages(processed_data: Dict[str, Dict[str, List[Dict[str, str]]]]) -
 
             lines.append(f"{index} - {title}")
             lines.append("")
-            lines.append(f"{identifier_label}:")
-            for occurrence in ocorrencias:
-                fields = template.get("campos_exibicao", ["placa"]) if template is not None else ["placa"]
-                formatted_value = _format_identifiers(occurrence, fields)
-                if formatted_value:
-                    lines.append(formatted_value)
-            lines.append("")
 
             if template is None:
                 lines.append("Mensagem para este erro ainda não cadastrada.")
             else:
-                lines.append("Impacto:")
-                lines.append(template.get("impacto", ""))
+                if template.get("impacto"):
+                    lines.append("Impacto:")
+                    lines.append(template.get("impacto", ""))
+                    lines.append("")
+
+                lines.append(f"{identifier_label}:")
+                for occurrence in ocorrencias:
+                    fields = template.get("campos_exibicao", ["placa"])
+                    formatted_value = _format_identifiers(occurrence, fields)
+                    if formatted_value:
+                        lines.append(formatted_value)
                 lines.append("")
+
                 orientation_lines = _format_orientations(template.get("orientacao", []))
                 lines.extend(orientation_lines)
 

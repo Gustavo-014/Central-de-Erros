@@ -97,11 +97,15 @@
     "titulo": "O veículo dessa infração não está em seu nome ou possui pendência de emissão do CRV. Regularize a situação no Detran",
     "rotulo_identificadores": "Veículos",
     "campos_exibicao": [
-      "placa"
+      "placa",
+      "cnpj"
     ],
     "impacto": "As consultas não foram realizadas para os veículos",
     "orientacao": [
-      "Solicitamos que verifiquem o cadastro do veículo, e/ou regularizem a situação no Detran."
+      "Solicitamos que verifiquem se:",
+      "Se o veículo pertence à frota;",
+      "Se está vinculado ao CNPJ correto;",
+      "Se o cadastro está atualizado."
     ],
     "tipo": "usuario"
   },
