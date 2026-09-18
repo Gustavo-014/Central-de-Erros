@@ -75,7 +75,7 @@
     ],
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ seja vinculado ao gov.br.",
     "orientacao": [
-      "Vinculem o CNPJ mencionado no gov.br."
+    "- Solicitamos que vinculem o CNPJ mencionado no gov.br."
     ],
     "tipo": "usuario"
   },

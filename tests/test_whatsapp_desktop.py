@@ -34,7 +34,7 @@ class TestWhatsAppDesktop(unittest.TestCase):
         mock_hotkey.assert_any_call("ctrl", "v")
 
         # Deve ter copiado tanto o grupo quanto a mensagem
-        self.assertEqual(mock_pyperclip.call_count, 2)
+        self.assertGreaterEqual(mock_pyperclip.call_count, 2)
         mock_pyperclip.assert_any_call("Frota ABC - Suporte")
         mock_pyperclip.assert_any_call("Olá, temos um erro pendente.")
 

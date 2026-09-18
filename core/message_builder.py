@@ -102,10 +102,12 @@ def build_messages(processed_data: Dict[str, Dict[str, List[Dict[str, str]]]]) -
                     lines.append("")
 
                 lines.append(f"{identifier_label}:")
+                seen_identifiers = set()
                 for occurrence in ocorrencias:
                     fields = template.get("campos_exibicao", ["placa"])
                     formatted_value = _format_identifiers(occurrence, fields)
-                    if formatted_value:
+                    if formatted_value and formatted_value not in seen_identifiers:
+                        seen_identifiers.add(formatted_value)
                         lines.append(formatted_value)
                 lines.append("")
 

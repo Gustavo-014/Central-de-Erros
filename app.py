@@ -268,21 +268,8 @@ def render_action_buttons(text_to_copy: str, client_id: str, contact_info: Optio
             </a>
             """
         else:
-            # group_name: abre WhatsApp Web e copia o texto da mensagem
-            wa_button_html = f"""
-            <button class="wa-btn" onclick='
-                navigator.clipboard.writeText({escaped_text}).then(function() {{
-                    window.open("https://web.whatsapp.com/", "_blank");
-                    var btn = document.getElementById("wa_btn_{client_id}");
-                    btn.innerText = "✅ Copiado! Busque no WhatsApp: " + {escaped_group};
-                    setTimeout(function() {{
-                        btn.innerText = "🌐 Abrir WhatsApp Web & Copiar";
-                    }}, 4000);
-                }});
-            ' id="wa_btn_{client_id}">
-                🌐 Abrir WhatsApp Web & Copiar
-            </button>
-            """
+            # group_name: o envio e busca são feitos pelo botão nativo de WhatsApp Desktop
+            wa_button_html = ""
 
     html_code = f"""
     <!DOCTYPE html>
@@ -745,25 +732,30 @@ def render_operacional_tab():
                                     key=f"dl_excel_{cliente}_{index}",
                                 )
 
-                            # Botão de Ação Rápida: WhatsApp Desktop (Automação de Grupo)
+                            # Botões de Ação lado a lado (50% / 50%)
                             if contact_info and contact_info.get("contact_type") == "group_name":
                                 nome_grupo_alvo = contact_info.get("contact_value", "")
-                                if st.button(
-                                    f"🚀 Abrir no Grupo '{nome_grupo_alvo}' (WhatsApp Desktop)",
-                                    key=f"btn_wa_desk_{cliente}_{index}",
-                                    type="primary",
-                                    use_container_width=True,
-                                    help=f"Abre o WhatsApp Desktop, pesquisa por '{nome_grupo_alvo}', entra na conversa e já cola o texto na caixa de envio.",
-                                ):
-                                    with st.spinner(f"Abrindo WhatsApp Desktop e localizando '{nome_grupo_alvo}'..."):
-                                        ok_desk, msg_desk = open_group_in_whatsapp_desktop(nome_grupo_alvo, mensagem)
-                                        if ok_desk:
-                                            st.toast(f"✅ {msg_desk}", icon="🚀")
-                                        else:
-                                            st.error(f"⚠️ {msg_desk}")
+                                col_btn_desk, col_btn_copy = st.columns([1, 1])
 
-                            # Botões de Ação (Copiar + Abrir WhatsApp)
-                            render_action_buttons(mensagem, client_id=f"cli_{index}", contact_info=contact_info)
+                                with col_btn_desk:
+                                    if st.button(
+                                        f"🚀 Abrir no WhatsApp Desktop",
+                                        key=f"btn_wa_desk_{cliente}_{index}",
+                                        type="primary",
+                                        use_container_width=True,
+                                        help=f"Abre o WhatsApp Desktop, pesquisa por '{nome_grupo_alvo}', entra na conversa e já cola o texto na caixa de envio.",
+                                    ):
+                                        with st.spinner(f"Abrindo WhatsApp Desktop e localizando '{nome_grupo_alvo}'..."):
+                                            ok_desk, msg_desk = open_group_in_whatsapp_desktop(nome_grupo_alvo, mensagem)
+                                            if ok_desk:
+                                                st.toast(f"✅ {msg_desk}", icon="🚀")
+                                            else:
+                                                st.error(f"⚠️ {msg_desk}")
+
+                                with col_btn_copy:
+                                    render_action_buttons(mensagem, client_id=f"cli_{index}", contact_info=contact_info)
+                            else:
+                                render_action_buttons(mensagem, client_id=f"cli_{index}", contact_info=contact_info)
 
                 # Avisos de Erros sem Template (Discreto no final)
                 if erros_sem_template:
