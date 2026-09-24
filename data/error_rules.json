@@ -6,13 +6,13 @@
     "Órgão consultado apresentou instabilidade",
     "Erro inesperado. Por favor, tente novamente mais tarde. Caso o erro persista, notifique o time de desenvolvimento",
     "Erro com o serviço de captcha. Por favor, tente novamente mais tarde. Caso o erro persista, notifique o time de desenvolvimento",
-    "Nenhum registro encontrado",
     "java.io.IOException: Connection was closed",
     "Infração não encontrada no SNE",
     "VeiculoService.obterVeiculoPRPorRenavam(): Veículo não cadastrado!",
     "Substituida por reprocesso do agente",
     "A placa informada não foi encontrada em nossos sistemas.",
-    "return value of jakarta.persistence.Tuple.get(String, java.lang.Class) is null"
+    "return value of jakarta.persistence.Tuple.get(String, java.lang.Class) is null",
+    "Veículo não possui autos convertidos em Advertência"
   ],
   "prefixos": [
     {

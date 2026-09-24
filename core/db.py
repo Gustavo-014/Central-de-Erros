@@ -27,8 +27,15 @@ def get_connection():
         conn.close()
 
 
-def init_db() -> None:
+_DB_INITIALIZED = False
+
+
+def init_db(force: bool = False) -> None:
     """Inicializa as tabelas necessárias no SQLite se não existirem."""
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED and not force:
+        return
+
     with get_connection() as conn:
         cursor = conn.cursor()
         
@@ -138,6 +145,7 @@ def init_db() -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_tipo ON daily_erros(tipo)")
 
         conn.commit()
+    _DB_INITIALIZED = True
 
 
 def reset_daily_db() -> None:
@@ -153,7 +161,7 @@ def reset_daily_db() -> None:
         cursor.execute("DROP TABLE IF EXISTS daily_clientes")
         cursor.execute("DROP TABLE IF EXISTS daily_snapshots")
         conn.commit()
-    init_db()
+    init_db(force=True)
 
 
 def sanitize_phone(phone: str) -> str:
@@ -320,27 +328,61 @@ def check_errors_sent_recently(client_name: str, errors: List[str], days: int = 
     indicando quais erros já foram enviados ou resolvidos dentro do período de cooldown de 1 dia.
     """
     init_db()
-    cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
     result: Dict[str, Optional[Dict[str, str]]] = {err: None for err in errors}
+    if not errors or not client_name:
+        return result
+
+    cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    placeholders = ",".join("?" for _ in errors)
+    query = f"""
+        SELECT error_normalized, sent_at, channel 
+        FROM sent_history 
+        WHERE client_name = ? AND error_normalized IN ({placeholders}) AND sent_at >= ?
+        ORDER BY sent_at DESC
+    """
+    params = [client_name.strip()] + [e.strip() for e in errors] + [cutoff_date]
 
     with get_connection() as conn:
         cursor = conn.cursor()
-        for err in errors:
-            cursor.execute(
-                """
-                SELECT sent_at, channel 
-                FROM sent_history 
-                WHERE client_name = ? AND error_normalized = ? AND sent_at >= ?
-                ORDER BY sent_at DESC 
-                LIMIT 1
-                """,
-                (client_name.strip(), err.strip(), cutoff_date)
-            )
-            row = cursor.fetchone()
-            if row:
-                result[err] = {
+        cursor.execute(query, params)
+        for row in cursor.fetchall():
+            err_norm = row["error_normalized"]
+            if err_norm in result and result[err_norm] is None:
+                result[err_norm] = {
                     "sent_at": row["sent_at"],
                     "channel": row["channel"] or "whatsapp",
                 }
 
     return result
+
+
+def get_all_recent_cooldowns(days: int = 1) -> Dict[Tuple[str, str], Dict[str, str]]:
+    """
+    Retorna um mapa {(client_name, error_normalized): {'sent_at': ..., 'channel': ...}}
+    com todos os erros enviados/resolvidos recentemente em uma única query rápida.
+    """
+    init_db()
+    cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    result: Dict[Tuple[str, str], Dict[str, str]] = {}
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT client_name, error_normalized, sent_at, channel
+            FROM sent_history
+            WHERE sent_at >= ?
+            ORDER BY sent_at DESC
+            """,
+            (cutoff_date,)
+        )
+        for row in cursor.fetchall():
+            key = (row["client_name"].strip(), row["error_normalized"].strip())
+            if key not in result:
+                result[key] = {
+                    "sent_at": row["sent_at"],
+                    "channel": row["channel"] or "whatsapp",
+                }
+
+    return result
+

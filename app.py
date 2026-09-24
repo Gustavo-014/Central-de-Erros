@@ -1,4 +1,3 @@
-import importlib
 import json
 import urllib.parse
 from datetime import datetime
@@ -8,13 +7,10 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-import core.db
-importlib.reload(core.db)
-
 from core.db import (
-    check_errors_sent_recently,
     delete_client_contact,
     get_all_contacts,
+    get_all_recent_cooldowns,
     get_client_contact,
     register_client_all_errors_sent,
     save_client_contact,
@@ -357,6 +353,48 @@ def render_action_buttons(text_to_copy: str, client_id: str, contact_info: Optio
     """
     components.html(html_code, height=45)
 
+@st.cache_data(show_spinner=False)
+def load_and_process_excel_cached(file_bytes: bytes):
+    """Lê, valida, processa e prepara mensagens a partir dos bytes do arquivo Excel com cache."""
+    from io import BytesIO
+    df = pd.read_excel(BytesIO(file_bytes), engine="openpyxl")
+    is_valid, missing_columns = validate_columns(df)
+    if not is_valid:
+        return df, False, missing_columns, {}, [], {}, {}
+    dados, erros_sem_template = process_dataframe(df)
+    mensagens = build_messages(dados)
+    contagem_registros = count_errors_by_account(df)
+    return df, True, [], dados, erros_sem_template, mensagens, contagem_registros
+
+
+@st.cache_data(show_spinner=False)
+def get_cached_account_excel(file_hash: str, cliente: str, _dataframe: pd.DataFrame) -> bytes:
+    """Gera e armazena em cache o arquivo Excel para download de um cliente específico."""
+    return export_account_errors_to_excel(_dataframe, cliente)
+
+
+def toggle_enviado(cliente: str, chk_res_key: str, erros_do_cliente: List[str]):
+    """Callback instantâneo ao alternar o checkbox de Enviado."""
+    chk_env_key = f"chk_env_{cliente}"
+    val = st.session_state.get(chk_env_key, False)
+    st.session_state.enviados[cliente] = val
+    if val:
+        st.session_state.resolvidos[cliente] = False
+        st.session_state[chk_res_key] = False
+        register_client_all_errors_sent(cliente, erros_do_cliente, channel="whatsapp")
+
+
+def toggle_resolvido(cliente: str, chk_env_key: str, erros_do_cliente: List[str]):
+    """Callback instantâneo ao alternar o checkbox de Resolvido."""
+    chk_res_key = f"chk_res_{cliente}"
+    val = st.session_state.get(chk_res_key, False)
+    st.session_state.resolvidos[cliente] = val
+    if val:
+        st.session_state.enviados[cliente] = False
+        st.session_state[chk_env_key] = False
+        register_client_all_errors_sent(cliente, erros_do_cliente, channel="resolvido")
+
+
 def render_operacional_tab():
     # 1. Campo Obrigatório: Data da análise / Data do Daily
     col_up_date, col_up_file = st.columns([1.3, 2.7])
@@ -378,29 +416,23 @@ def render_operacional_tab():
     if uploaded_file is None:
         st.info("💡 **Aguardando envio da planilha.** Defina a data da análise e selecione um arquivo para começar.")
     else:
+        file_bytes = uploaded_file.getvalue()
+        file_hash = compute_file_hash(file_bytes)
         try:
-            dataframe: Any = read_excel(uploaded_file)
+            dataframe, is_valid, missing_columns, dados, erros_sem_template, mensagens, contagem_registros = (
+                load_and_process_excel_cached(file_bytes)
+            )
         except Exception as exc:
             st.error(f"Erro ao ler o arquivo Excel: {exc}")
         else:
-            is_valid, missing_columns = validate_columns(dataframe)
-
             if not is_valid:
                 st.error(
                     "❌ **Planilha inválida.** As seguintes colunas obrigatórias estão ausentes:\n\n"
                     + "\n".join([f"• `{col}`" for col in missing_columns])
                 )
             else:
-                # Processamento dos dados
-                dados, erros_sem_template = process_dataframe(dataframe)
-                mensagens = build_messages(dados)
-                contagem_registros = count_errors_by_account(dataframe)
-
-                # Persistência do snapshot diário com verificação e confirmação de duplicidade
                 target_date_str = data_analise.strftime("%Y-%m-%d")
                 target_date_fmt = data_analise.strftime("%d/%m/%Y")
-                file_bytes = uploaded_file.getvalue()
-                file_hash = compute_file_hash(file_bytes)
 
                 existing_snap = get_snapshot_by_date(target_date_str)
                 replace_key = f"confirmed_replace_{target_date_str}_{file_hash}"
@@ -476,12 +508,16 @@ def render_operacional_tab():
 
                 st.divider()
 
-                # Pré-calcular histórico de duplicidades/cooldown por cliente
+                # Pré-calcular histórico de duplicidades/cooldown por cliente (consulta única otimizada)
+                recent_cooldowns = get_all_recent_cooldowns(days=COOLDOWN_DAYS)
                 duplicidades_por_cliente = {}
                 for cliente in mensagens:
                     erros_cli = list(dados.get(cliente, {}).keys())
-                    hist = check_errors_sent_recently(cliente, erros_cli, days=COOLDOWN_DAYS)
-                    duplicidades_por_cliente[cliente] = {err: dt for err, dt in hist.items() if dt is not None}
+                    duplicidades_por_cliente[cliente] = {
+                        err: recent_cooldowns[(cliente, err)]
+                        for err in erros_cli
+                        if (cliente, err) in recent_cooldowns
+                    }
 
                 # Garantir chaves no session_state para cada cliente
                 for cliente in mensagens:
@@ -585,8 +621,8 @@ def render_operacional_tab():
                         tem_resolvido = len(erros_resolvidos_ant) > 0
                         tem_notificado = len(erros_notificados_ant) > 0
 
-                        # Buscar contato / nome de grupo cadastrado
-                        contact_info = get_client_contact(cliente)
+                        # Buscar contato / nome de grupo cadastrado (em memória)
+                        contact_info = contatos_cadastrados.get(cliente)
 
                         # Título dinâmico do card com status
                         if is_enviado:
@@ -675,40 +711,31 @@ def render_operacional_tab():
                                             else:
                                                 st.error(msg)
 
-                            # Checkboxes de Controle lado a lado
+                            # Checkboxes de Controle lado a lado (com callbacks instantâneos)
                             col_env, col_res = st.columns(2)
 
+                            chk_env_key = f"chk_env_{cliente}"
+                            chk_res_key = f"chk_res_{cliente}"
+
+                            if chk_env_key not in st.session_state:
+                                st.session_state[chk_env_key] = is_enviado
+                            if chk_res_key not in st.session_state:
+                                st.session_state[chk_res_key] = is_resolvido
+
                             with col_env:
-                                enviado_check = st.checkbox(
+                                st.checkbox(
                                     "✅ Enviado ao cliente",
-                                    value=is_enviado,
-                                    key=f"chk_env_{cliente}_{index}"
+                                    key=chk_env_key,
+                                    on_change=toggle_enviado,
+                                    args=(cliente, chk_res_key, erros_do_cliente),
                                 )
                             with col_res:
-                                resolvido_check = st.checkbox(
+                                st.checkbox(
                                     "🔧 Resolvido",
-                                    value=is_resolvido,
-                                    key=f"chk_res_{cliente}_{index}"
+                                    key=chk_res_key,
+                                    on_change=toggle_resolvido,
+                                    args=(cliente, chk_env_key, erros_do_cliente),
                                 )
-
-                            # Exclusividade mútua + atualização de estado e registro no SQLite
-                            changed = False
-                            if enviado_check != is_enviado:
-                                st.session_state.enviados[cliente] = enviado_check
-                                if enviado_check:
-                                    st.session_state.resolvidos[cliente] = False
-                                    # Registrar no histórico SQLite como enviado
-                                    register_client_all_errors_sent(cliente, erros_do_cliente, channel="whatsapp")
-                                changed = True
-                            elif resolvido_check != is_resolvido:
-                                st.session_state.resolvidos[cliente] = resolvido_check
-                                if resolvido_check:
-                                    st.session_state.enviados[cliente] = False
-                                    # Registrar no histórico SQLite como resolvido
-                                    register_client_all_errors_sent(cliente, erros_do_cliente, channel="resolvido")
-                                changed = True
-                            if changed:
-                                st.rerun()
 
                             # Área de texto com a mensagem
                             st.text_area(
@@ -719,10 +746,10 @@ def render_operacional_tab():
                                 label_visibility="collapsed"
                             )
 
-                            # Botão de Exportação Excel (contas com mais de 10 registros)
+                            # Botão de Exportação Excel (contas com mais de 10 registros, com cache)
                             qtd_registros_conta = contagem_registros.get(cliente, 0)
                             if qtd_registros_conta > 10:
-                                excel_bytes = export_account_errors_to_excel(dataframe, cliente)
+                                excel_bytes = get_cached_account_excel(file_hash, cliente, dataframe)
                                 nome_arquivo = f"{sanitize_filename(cliente)} - Erros de usuários.xlsx"
                                 st.download_button(
                                     label=f"📥 Exportar Excel ({qtd_registros_conta} registros)",

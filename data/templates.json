@@ -281,5 +281,20 @@
       "Verifiquem o Renavam do veículo"
     ],
     "tipo": "consulta"
+  },
+  "Nenhum registro encontrado": {
+    "titulo": "Nenhum registro encontrado",
+    "rotulo_identificadores": "Placas",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não serão realizadas para estes veículos.",
+    "orientacao": [
+      "Solicitamos que verifiquem se:",
+      "Se o veículo pertence à frota;",
+      "Se está vinculado ao CNPJ correto;",
+      "Se o cadastro está atualizado."
+    ],
+    "tipo": "consulta"
   }
 }
