@@ -9,7 +9,7 @@ pyautogui.FAILSAFE = False
 
 
 def open_group_in_whatsapp_desktop(
-    group_name: str, message: str = "", wait_open_seconds: float = 2.0
+    group_name: str, message: str = "", wait_open_seconds: float = 1.0
 ) -> Tuple[bool, str]:
     """
     Abre o WhatsApp Desktop, ativa o campo de pesquisa, busca o grupo pelo nome,
@@ -29,19 +29,20 @@ def open_group_in_whatsapp_desktop(
         if message and str(message).strip():
             pyperclip.copy(str(message).strip())
 
-        # 2. Abre ou traz o WhatsApp Desktop para primeiro plano via protocolo nativo do Windows
-        os.startfile("whatsapp:")
+        # 2. Abre ou traz o WhatsApp Desktop para primeiro plano (4º item fixado na barra de tarefas: Win + 4)
+        # os.startfile("whatsapp:")  # Mantido comentado para caso seja necessário no futuro
+        pyautogui.hotkey("win", "4")
 
         # Aguarda a tela do WhatsApp abrir e se consolidar
         time.sleep(wait_open_seconds)
 
         # 3. Pressiona ESC para fechar qualquer modal, menu ou foco residual e garantir estado limpo
         pyautogui.press("esc")
-        time.sleep(0.3)
+        time.sleep(0.2)
 
         # 4. Aciona a busca de conversas do WhatsApp (Ctrl + F)
         pyautogui.hotkey("ctrl", "f")
-        time.sleep(0.5)
+        time.sleep(0.3)
 
         # 5. Garante que o campo de busca esteja limpo antes de colar o grupo
         pyautogui.hotkey("ctrl", "a")

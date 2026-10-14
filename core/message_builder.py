@@ -62,11 +62,13 @@ def _format_identifiers(occurrence: Dict[str, str], fields: List[str]) -> str:
     for field in fields:
         value = occurrence.get(field)
         if value:
+            val_str = str(value).strip()
             if field == "cnpj":
-                value = value.replace(".", "").replace("/", "").replace("-", "")
-                if len(value) == 14:
-                    value = f"{value[:2]}.{value[2:5]}.{value[5:8]}/{value[8:12]}-{value[12:14]}"
-            values.append(value)
+                val_str = val_str.replace(".", "").replace("/", "").replace("-", "")
+                if len(val_str) == 14:
+                    val_str = f"{val_str[:2]}.{val_str[2:5]}.{val_str[5:8]}/{val_str[8:12]}-{val_str[12:14]}"
+            if val_str:
+                values.append(val_str)
     return " - ".join(values)
 
 

@@ -7,7 +7,7 @@ from core.message_builder import build_messages
 
 class TestIndicatorDeduplication(unittest.TestCase):
     def test_same_cnpj_repeated_three_times_in_same_error(self):
-        """Mesmo CNPJ repetido 3 vezes no mesmo erro → deve aparecer 1 vez."""
+        """Mesmo CNPJ repetido 3 vezes no mesmo erro → 3 para o dashboard (absoluto), 1 vez na mensagem."""
         df = pd.DataFrame([
             {
                 "Nome da Conta": "Cliente Teste",
@@ -38,15 +38,16 @@ class TestIndicatorDeduplication(unittest.TestCase):
         
         self.assertIn("CNPJ não vinculado ao gov.br", erros_cliente)
         ocorrencias = erros_cliente["CNPJ não vinculado ao gov.br"]
-        self.assertEqual(len(ocorrencias), 1)
-        self.assertEqual(ocorrencias[0]["cnpj"], "12.123.123/0001-01")
+        # Números absolutos para o Dashboard
+        self.assertEqual(len(ocorrencias), 3)
 
+        # Na mensagem, deduplicado para aparecer apenas uma vez
         mensagens = build_messages(dados)
         msg = mensagens["Cliente Teste"]
         self.assertEqual(msg.count("12.123.123/0001-01"), 1)
 
     def test_same_cnpj_in_two_different_errors(self):
-        """Mesmo CNPJ em 2 erros diferentes → deve aparecer 1 vez em cada erro."""
+        """Mesmo CNPJ em 2 erros diferentes → contagem absoluta nos dados, 1 vez em cada mensagem de erro."""
         df = pd.DataFrame([
             {
                 "Nome da Conta": "Cliente Teste",
@@ -71,15 +72,17 @@ class TestIndicatorDeduplication(unittest.TestCase):
         dados, _ = process_dataframe(df)
         erros_cliente = dados["Cliente Teste"]
 
-        self.assertEqual(len(erros_cliente["CNPJ não vinculado ao gov.br"]), 1)
+        # Números absolutos nos dados
+        self.assertEqual(len(erros_cliente["CNPJ não vinculado ao gov.br"]), 2)
         self.assertEqual(len(erros_cliente["Certificado Digital expirado. Por favor, utilize um novo"]), 1)
 
+        # Mensagem gerada
         mensagens = build_messages(dados)
         msg = mensagens["Cliente Teste"]
         self.assertEqual(msg.count("12.123.123/0001-01"), 2)
 
     def test_different_cnpjs_in_same_error(self):
-        """CNPJs diferentes no mesmo erro → todos devem permanecer."""
+        """CNPJs diferentes no mesmo erro → todos devem permanecer nos dados e na mensagem."""
         df = pd.DataFrame([
             {
                 "Nome da Conta": "Cliente Teste",
@@ -118,7 +121,7 @@ class TestIndicatorDeduplication(unittest.TestCase):
         self.assertIn("33.333.333/0001-33", msg)
 
     def test_repeated_plates_and_renavams_in_same_error(self):
-        """Placas/Renavams repetidos no mesmo erro → também devem ser deduplicados."""
+        """Placas/Renavams repetidos no mesmo erro → absolutos nos dados, deduplicados na mensagem."""
         df_placa_renavam = pd.DataFrame([
             {
                 "Nome da Conta": "Cliente Teste",
@@ -144,7 +147,7 @@ class TestIndicatorDeduplication(unittest.TestCase):
 
         dados1, _ = process_dataframe(df_placa_renavam)
         ocorrencias1 = dados1["Cliente Teste"]["Renavam não localizados"]
-        self.assertEqual(len(ocorrencias1), 2)
+        self.assertEqual(len(ocorrencias1), 3)
         
         msg1 = build_messages(dados1)["Cliente Teste"]
         self.assertEqual(msg1.count("ABC-1234 - 12345678901"), 1)
@@ -173,7 +176,7 @@ class TestIndicatorDeduplication(unittest.TestCase):
 
         dados2, _ = process_dataframe(df_apenas_placa)
         ocorrencias2 = dados2["Cliente Teste"]["Veículo não encontrado"]
-        self.assertEqual(len(ocorrencias2), 1)
+        self.assertEqual(len(ocorrencias2), 3)
 
         msg2 = build_messages(dados2)["Cliente Teste"]
         self.assertEqual(msg2.count("XYZ-9999"), 1)
@@ -223,6 +226,34 @@ class TestIndicatorDeduplication(unittest.TestCase):
         msgs = build_messages(raw_processed)
         msg = msgs["Cliente X"]
         self.assertEqual(msg.count("12.123.123/0001-01"), 2)
+
+    def test_scenario_160_user_errors_dashboard_absolute_and_message_deduplicated(self):
+        """Cenário real: cliente com 160 erros de 2FA → 160 nos dados absolutos para dashboard, 1 na mensagem."""
+        erro_2fa = "Esta conta possui verificação em 2 etapas ativada. Necessário desativar esta verificação para que a consulta seja realizada."
+        linhas = [
+            {
+                "Nome da Conta": "Cliente 2FA",
+                "Mensagem de Erro": erro_2fa,
+                "CNPJ": "12.123.123/0001-01",
+                "Placa": f"ABC{i:04d}",
+            }
+            for i in range(160)
+        ]
+        df = pd.DataFrame(linhas)
+
+        dados, _ = process_dataframe(df)
+        self.assertIn("Cliente 2FA", dados)
+        erros_cliente = dados["Cliente 2FA"]
+
+        # 160 ocorrências absolutas preservadas para o Dashboard
+        self.assertEqual(len(erros_cliente), 1)
+        erro_chave = list(erros_cliente.keys())[0]
+        self.assertEqual(len(erros_cliente[erro_chave]), 160)
+
+        # Na mensagem, o CNPJ só deve aparecer 1 vez
+        mensagens = build_messages(dados)
+        msg = mensagens["Cliente 2FA"]
+        self.assertEqual(msg.count("12.123.123/0001-01"), 1)
 
 
 if __name__ == "__main__":

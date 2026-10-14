@@ -16,14 +16,13 @@ class TestWhatsAppDesktop(unittest.TestCase):
     @patch("core.whatsapp_desktop.pyautogui.hotkey")
     @patch("core.whatsapp_desktop.pyautogui.press")
     @patch("core.whatsapp_desktop.pyperclip.copy")
-    @patch("core.whatsapp_desktop.os.startfile")
-    def test_successful_open(self, mock_startfile, mock_pyperclip, mock_press, mock_hotkey, mock_sleep):
+    def test_successful_open(self, mock_pyperclip, mock_press, mock_hotkey, mock_sleep):
         ok, msg = open_group_in_whatsapp_desktop("Frota ABC - Suporte", "Olá, temos um erro pendente.")
         self.assertTrue(ok)
         self.assertIn("Frota ABC - Suporte", msg)
 
-        # Deve ter chamado os.startfile("whatsapp:")
-        mock_startfile.assert_called_once_with("whatsapp:")
+        # Deve ter chamado Win+4 para abrir o WhatsApp Desktop fixado na barra de tarefas
+        mock_hotkey.assert_any_call("win", "4")
 
         # Deve ter pressionado ESC e ENTER
         mock_press.assert_any_call("esc")

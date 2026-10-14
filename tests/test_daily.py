@@ -285,6 +285,60 @@ class TestDailyModule(unittest.TestCase):
         errs_b = get_client_errors(snap["id"], "Cliente B")
         self.assertEqual(errs_b[0]["tipo"], "usuario")
 
+    def test_scenario_absolute_numbers_in_snapshot_and_deduplicated_messages(self):
+        """Garante que process_dataframe gera contagem absoluta no snapshot e build_messages deduplica."""
+        from core.processor import process_dataframe
+        from core.message_builder import build_messages
+
+        # 160 erros de 2FA para o mesmo cliente com o mesmo CNPJ
+        linhas = [
+            {
+                "Nome da Conta": "Cliente Frota 160",
+                "Mensagem de Erro": "Esta conta possui verificação em 2 etapas ativada. Necessário desativar esta verificação para que a consulta seja realizada",
+                "CNPJ": "12.123.123/0001-01",
+                "Placa": f"ABC{i:04d}",
+            }
+            for i in range(160)
+        ]
+        # Mais 10 erros de consulta de outro cliente
+        for i in range(10):
+            linhas.append(
+                {
+                    "Nome da Conta": "Cliente Outro",
+                    "Mensagem de Erro": "Veículo não encontrado.",
+                    "Placa": f"XYZ{i:04d}",
+                }
+            )
+
+        df = pd.DataFrame(linhas)
+        dados, _ = process_dataframe(df)
+
+        # 1. Snapshot com números absolutos
+        ok, msg = record_daily_snapshot(
+            dados=dados,
+            dataframe=df,
+            filename="erros-170.xlsx",
+            target_date="2026-09-10",
+        )
+        self.assertTrue(ok)
+
+        snap = get_snapshot_by_date("2026-09-10")
+        self.assertEqual(snap["total_erros"], 170)
+        self.assertEqual(snap["erros_usuario"], 160)
+        self.assertEqual(snap["erros_consulta"], 10)
+        self.assertEqual(snap["clientes_afetados"], 2)
+
+        # Ranking do cliente principal
+        ranking = get_client_ranking(snap["id"])
+        self.assertEqual(ranking[0]["cliente"], "Cliente Frota 160")
+        self.assertEqual(ranking[0]["total_erros"], 160)
+
+        # 2. Mensagem gerada: deduplica indicadores
+        mensagens = build_messages(dados)
+        msg_160 = mensagens["Cliente Frota 160"]
+        self.assertEqual(msg_160.count("12.123.123/0001-01"), 1)
+        self.assertEqual(len(mensagens["Cliente Outro"].strip().split("\n")), len(mensagens["Cliente Outro"].strip().split("\n")))
+
     def test_extract_date_from_filename(self):
         """Validação da extração de datas em nomes de arquivos."""
         self.assertEqual(extract_date_from_filename("erros-28/08.xlsx", default_year=2026), "2026-08-28")

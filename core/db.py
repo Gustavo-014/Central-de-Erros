@@ -144,6 +144,49 @@ def init_db(force: bool = False) -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_erro ON daily_erros(erro)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_erros_tipo ON daily_erros(tipo)")
 
+        # 4. Tabela de Consultas Históricas por Cliente (baseada na coluna Data Consulta)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS client_history_consultas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT NOT NULL,
+                data_consulta TEXT NOT NULL,          -- 'YYYY-MM-DD'
+                total_erros INTEGER NOT NULL DEFAULT 0,
+                tipos_erros INTEGER NOT NULL DEFAULT 0,
+                file_hash TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(cliente, data_consulta)
+            )
+            """
+        )
+
+        # 5. Tabela de Detalhamento dos Erros por Consulta do Cliente
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS client_history_erros (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                consulta_id INTEGER NOT NULL,
+                cliente TEXT NOT NULL,
+                data_consulta TEXT NOT NULL,          -- 'YYYY-MM-DD'
+                erro TEXT NOT NULL,
+                tipo TEXT NOT NULL DEFAULT 'nao_classificado', -- 'consulta', 'usuario', 'nao_classificado'
+                quantidade INTEGER NOT NULL DEFAULT 1,
+                indicadores TEXT,                     -- JSON com lista de indicadores (ex: placas, cnpjs)
+                FOREIGN KEY (consulta_id) REFERENCES client_history_consultas(id) ON DELETE CASCADE,
+                UNIQUE(consulta_id, erro, tipo)
+            )
+            """
+        )
+
+        # Índices de performance para Histórico de Clientes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_consultas_cliente ON client_history_consultas(cliente)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_consultas_data ON client_history_consultas(data_consulta)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_consultas_cli_data ON client_history_consultas(cliente, data_consulta)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_erros_consulta ON client_history_erros(consulta_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_erros_cli_data ON client_history_erros(cliente, data_consulta)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_erros_erro ON client_history_erros(erro)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ch_erros_tipo ON client_history_erros(tipo)")
+
         conn.commit()
     _DB_INITIALIZED = True
 
@@ -160,6 +203,20 @@ def reset_daily_db() -> None:
         cursor.execute("DROP TABLE IF EXISTS daily_erros")
         cursor.execute("DROP TABLE IF EXISTS daily_clientes")
         cursor.execute("DROP TABLE IF EXISTS daily_snapshots")
+        conn.commit()
+    init_db(force=True)
+
+
+def reset_client_history_db() -> None:
+    """
+    Remove exclusivamente as tabelas de Histórico por Cliente (client_history_erros, client_history_consultas)
+    e as recria via init_db(), preservando todas as demais tabelas.
+    Utilizado principalmente para testes ou rotinas de manutenção controladas.
+    """
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS client_history_erros")
+        cursor.execute("DROP TABLE IF EXISTS client_history_consultas")
         conn.commit()
     init_db(force=True)
 

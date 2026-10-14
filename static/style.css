@@ -1,0 +1,457 @@
+/* Tipografia e Fundo Geral */
+html, body, [class*="css"] {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.stApp {
+    background-color: #080c14 !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%) !important;
+    background-attachment: fixed !important;
+    color: #f8fafc !important;
+}
+
+/* Top Header */
+.app-header-container {
+    padding: 4px 0 20px 0;
+    margin-bottom: 8px;
+}
+.header-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.28);
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #c7d2fe;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+.header-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse-dot 2s infinite ease-in-out;
+}
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+}
+.app-main-title {
+    font-size: 2.35rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 6px 0;
+}
+.app-sub-title {
+    color: #94a3b8;
+    font-size: 0.98rem;
+    font-weight: 400;
+    margin: 0;
+}
+
+/* Cards de Métricas em Glassmorphism Refinado */
+.metric-card {
+    background: rgba(17, 24, 39, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+    border-radius: 14px;
+    padding: 16px 20px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.metric-card:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.45);
+}
+.metric-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.metric-label {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+.metric-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.icon-indigo {
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+}
+.icon-emerald {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.icon-amber {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fde047;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.icon-sky {
+    background: rgba(14, 165, 233, 0.15);
+    color: #7dd3fc;
+    border: 1px solid rgba(14, 165, 233, 0.25);
+}
+.icon-rose {
+    background: rgba(244, 63, 94, 0.15);
+    color: #fda4af;
+    border: 1px solid rgba(244, 63, 94, 0.25);
+}
+.metric-value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+.metric-denom {
+    font-size: 1.1rem;
+    color: #64748b;
+    font-weight: 500;
+}
+.metric-footer {
+    font-size: 0.76rem;
+    color: #64748b;
+    margin-top: 6px;
+}
+
+/* Barra de Progresso Estilizada */
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, #6366f1 0%, #38bdf8 100%) !important;
+    border-radius: 9999px !important;
+}
+.stProgress > div > div > div {
+    background-color: rgba(30, 41, 59, 0.6) !important;
+    border-radius: 9999px !important;
+}
+
+/* Abas de Navegação */
+div[data-testid="stTabs"] button[data-baseweb="tab"] {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    color: #94a3b8 !important;
+    border-radius: 8px 8px 0 0 !important;
+    transition: all 0.2s ease !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    color: #f1f5f9 !important;
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    color: #ffffff !important;
+    border-bottom: 2px solid #6366f1 !important;
+}
+
+/* Caixa de Texto das Mensagens - Estilo Editor de Código */
+div[data-baseweb="textarea"] textarea {
+    background-color: #0b111e !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace !important;
+    font-size: 0.90rem !important;
+    line-height: 1.55 !important;
+    padding: 12px 14px !important;
+}
+div[data-baseweb="textarea"] textarea:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Cards de Clientes (Expanders) */
+.stApp div[data-testid="stExpander"] {
+    background: rgba(17, 24, 39, 0.6) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    margin-bottom: 12px !important;
+    box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.25) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+.stApp div[data-testid="stExpander"]:hover {
+    border-color: rgba(99, 102, 241, 0.35) !important;
+    box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.35) !important;
+}
+.stApp div[data-testid="stExpander"] summary {
+    font-weight: 600 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Alerta de Cooldown / Duplicidade Moderno */
+.cooldown-alert {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    color: #fde047;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.alert-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+.alert-title {
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+.alert-desc {
+    color: #fef08a;
+    font-size: 0.82rem;
+}
+
+/* Alerta de Resolvido Moderno */
+.resolved-alert {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: #6ee7b7;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.resolved-alert .alert-desc {
+    color: #a7f3d0;
+    font-size: 0.82rem;
+}
+
+/* Badge de Contato WhatsApp */
+.contact-badge {
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.12);
+    color: #c7d2fe;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.contact-badge-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.contact-badge code {
+    background: rgba(15, 23, 42, 0.6);
+    color: #e0e7ff;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: 'JetBrains Mono', monospace;
+}
+.badge-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+}
+
+/* Card Informativo de Cooldown na Sidebar */
+.cooldown-sidebar-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 8px;
+}
+.cooldown-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+}
+.cooldown-sidebar-body {
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    line-height: 1.45;
+}
+
+/* Header da Sidebar */
+.sidebar-header-box {
+    padding: 4px 0 12px 0;
+    margin-bottom: 4px;
+}
+.sidebar-header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sidebar-header-sub {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+/* Empty State Card */
+.empty-state-card {
+    background: rgba(17, 24, 39, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 32px 24px;
+    text-align: center;
+    margin-top: 16px;
+}
+.empty-state-icon {
+    color: #818cf8;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: center;
+}
+.empty-state-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 6px;
+}
+.empty-state-desc {
+    font-size: 0.90rem;
+    color: #94a3b8;
+    max-width: 540px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+/* Info Banner */
+.info-banner {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 0.92rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.info-banner-icon {
+    color: #818cf8;
+    flex-shrink: 0;
+}
+
+/* Executive Summary Card */
+.executive-summary-card {
+    background: rgba(17, 24, 39, 0.65);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-left: 4px solid #6366f1;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-top: 8px;
+}
+.summary-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 14px;
+}
+.summary-header svg {
+    color: #818cf8;
+}
+.summary-list {
+    margin: 0;
+    padding-left: 20px;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+    line-height: 1.85;
+}
+.summary-list li b {
+    color: #f8fafc;
+}
+
+/* Inputs de Pesquisa e Formulários */
+div[data-baseweb="input"] {
+    background-color: rgba(15, 23, 42, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+}
+div[data-baseweb="input"]:focus-within {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Botões Modernizados */
+.stButton > button {
+    border-radius: 9px !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    padding: 6px 16px !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+    border: 1px solid rgba(99, 102, 241, 0.5) !important;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3) !important;
+}
+.stButton > button[kind="primary"]:hover {
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45) !important;
+    transform: translateY(-1px) !important;
+}
+.stLinkButton > a {
+    border-radius: 9px !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.stDownloadButton > button {
+    border-radius: 9px !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}

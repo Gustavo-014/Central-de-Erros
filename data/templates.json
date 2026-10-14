@@ -75,7 +75,7 @@
     ],
     "impacto": "As consultas não serão realizadas para os veículos cadastrados nesse CNPJ, até que o CNPJ seja vinculado ao gov.br.",
     "orientacao": [
-    "- Solicitamos que vinculem o CNPJ mencionado no gov.br."
+    " - Solicitamos que refaçam cadastro colaborativo para o CNPJ mencionado no gov.br."
     ],
     "tipo": "usuario"
   },
@@ -294,6 +294,20 @@
       "Se o veículo pertence à frota;",
       "Se está vinculado ao CNPJ correto;",
       "Se o cadastro está atualizado."
+    ],
+    "tipo": "consulta"
+  },
+  "Renavam incorreto.": {
+    "titulo": "Renavam incorreto.",
+    "rotulo_identificadores": "Veículos",
+    "campos_exibicao": [
+      "placa"
+    ],
+    "impacto": "As consultas não foram realizadas para esses veículos",
+    "orientacao": [
+      "Solicitamos que:",
+      "Verifiquem o cadastro do veículo;",
+      "Verifiquem o Renavam do veículo"
     ],
     "tipo": "consulta"
   }

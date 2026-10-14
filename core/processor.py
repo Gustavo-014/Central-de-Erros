@@ -31,9 +31,14 @@ def _extract_indicator_key(
 
 
 def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List[Dict[str, str]]]], List[str]]:
-    """Extrai, normaliza, agrupa e elimina duplicados a partir da planilha."""
+    """
+    Extrai, normaliza e agrupa as ocorrências a partir da planilha.
+    Mantém todas as ocorrências válidas (números absolutos) para o Dashboard.
+    A deduplicação de identificadores ocorre na geração de mensagens.
+    """
     result: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
     pending_errors: List[str] = []
+    pending_errors_set: set = set()
     templates = load_templates()
     normalized_templates = {
         _normalize_text(key): value for key, value in templates.items()
@@ -61,17 +66,14 @@ def process_dataframe(dataframe: pd.DataFrame) -> Tuple[Dict[str, Dict[str, List
             result[cliente][erro_normalizado] = []
 
         template = templates.get(erro_normalizado) or normalized_templates.get(_normalize_text(erro_normalizado))
-        occurrence_key = _extract_indicator_key(occurrence, template)
-        if not any(
-            _extract_indicator_key(item, template) == occurrence_key
-            for item in result[cliente][erro_normalizado]
-        ):
-            result[cliente][erro_normalizado].append(
-                {key: value for key, value in occurrence.items() if value not in [None, ""] and key not in ["cliente", "erro_original"]}
-            )
+        
+        result[cliente][erro_normalizado].append(
+            {key: value for key, value in occurrence.items() if value not in [None, ""] and key not in ["cliente", "erro_original"]}
+        )
 
         if template is None and erro_normalizado not in templates:
-            if erro_normalizado not in pending_errors:
+            if erro_normalizado not in pending_errors_set:
+                pending_errors_set.add(erro_normalizado)
                 pending_errors.append(erro_normalizado)
 
     return (
